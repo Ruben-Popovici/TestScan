@@ -36,6 +36,13 @@ input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:
 .swipe:last-child{border-bottom:0}
 .sbg{position:absolute;inset:0;background:var(--bad);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:flex-end;padding-right:16px}
 .srow{position:relative;background:var(--card);display:flex;justify-content:space-between;align-items:center;padding:10px 0;will-change:transform}
+.tw{overflow-x:auto;margin-top:8px}
+.pt{border-collapse:collapse;font-size:13px;min-width:100%}
+.pt th,.pt td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+.pt th{font-size:11px;font-weight:600;color:var(--mut);white-space:normal;min-width:64px;max-width:96px;vertical-align:bottom}
+.pt th:first-child,.pt td:first-child{position:sticky;left:0;background:var(--card);text-align:left;font-weight:600;z-index:1;min-width:84px;max-width:120px;white-space:normal}
+.dot.i{display:inline-block;width:10px;height:10px;margin-right:4px;vertical-align:middle}
+nav button{font-size:10.5px}
 .qa{display:block;width:100%;text-align:left;background:none;border:0;padding:4px 0;font:inherit;font-size:13px}
 .prow{display:grid;grid-template-columns:28px 54px 1fr 80px;gap:6px;align-items:center;margin-bottom:6px}
 .prow input{padding:6px}
@@ -63,6 +70,7 @@ input[type=file]{display:none}
 </section>
 
 <section id="v-list" class="view"><h2>Rezultate</h2><div id="list"></div></section>
+<section id="v-progress" class="view"><h2>Progres</h2><div id="progress"></div></section>
 <section id="v-people" class="view"><h2>Persoane</h2><div id="people"></div></section>
 <section id="v-key" class="view"><h2>Barem</h2><div id="key"></div></section>
 <section id="v-set" class="view"><h2>Setări</h2><div id="set"></div></section>
@@ -72,6 +80,7 @@ input[type=file]{display:none}
   <button data-v="list"><b>📋</b>Rezultate</button>
   <button data-v="people"><b>👥</b>Persoane</button>
   <button data-v="key"><b>✅</b>Barem</button>
+  <button data-v="progress"><b>📈</b>Progres</button>
   <button data-v="set"><b>⚙️</b>Setări</button>
 </nav>
 
@@ -241,7 +250,8 @@ const DEF=()=>({
   settings:{title:'1 Samuel 16-18',chapters:['16','17','18'],pts:3,base:10,thr:0.55},
   people:Array.from({length:31},()=>({name:'',group:''})),
   key:[0,1,2].map(()=>Array(10).fill(null)),
-  results:[]
+  results:[],
+  history:[]   // finished tests: {name,date,max,results:[...]}
 });
 let st=load();
 function load(){
@@ -251,6 +261,7 @@ function load(){
   const out=Object.assign(d,s);
   out.settings=Object.assign(DEF().settings,s.settings);
   while(out.people.length<31)out.people.push({name:'',group:''});
+  if(!Array.isArray(out.history))out.history=[];
   out.results.forEach(e=>{if(!e.v){e.total+=out.settings.base;e.v=2;}}); // older saves had no base points
   return out;
 }
@@ -258,8 +269,8 @@ function save(){try{localStorage.setItem('tf_v1',JSON.stringify(st));}catch(e){t
 function toast(m,ms=3500){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',ms);}
 const maxTotal=()=>st.settings.base+30*st.settings.pts;
 // red (lowest possible score) -> yellow -> green (full marks)
-const scoreColor=t=>{
-  const b=st.settings.base,f=Math.max(0,Math.min(1,(t-b)/Math.max(1,maxTotal()-b)));
+const scoreColor=(t,mx)=>{
+  const b=st.settings.base,f=Math.max(0,Math.min(1,(t-b)/Math.max(1,(mx||maxTotal())-b)));
   const A=[220,38,38],M=[250,204,21],G=[22,163,74];          // red -> yellow -> green, blended smoothly
   const [p,q,u]=f<0.5?[A,M,f*2]:[M,G,(f-0.5)*2];
   return `rgb(${p.map((v,i)=>(v+(q[i]-v)*u).toFixed(1)).join(',')})`;
@@ -271,7 +282,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.
 function show(v){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
-  ({scan:()=>{},list:renderList,people:renderPeople,key:renderKey,set:renderSet})[v]();
+  ({scan:()=>{},list:renderList,progress:renderProgress,people:renderPeople,key:renderKey,set:renderSet})[v]();
   window.scrollTo(0,0);
 }
 
@@ -441,16 +452,25 @@ function renderList(){
   </div>
   <div class="card">${res.length?'<div class="mut" style="margin-bottom:4px">Atinge un rezultat ca să-l corectezi · trage-l spre stânga ca să-l ștergi</div>'+res.map(e=>`<div class="swipe" data-idx="${e.idx}"><div class="sbg">Șterge</div><div class="srow"><div><b>${esc(pname(e.idx))}</b> <span class="mut">${esc(st.people[e.idx-1].group)}</span><div class="mut">${e.scores.join(' / ')}${e.issues?' · '+e.issues+' neclare':''}</div></div><div class="row"><span class="dot" style="background:${scoreColor(e.total)}"></span><b>${e.total}/${maxTotal()}</b></div></div></div>`).join(''):'<div class="mut">Niciun rezultat încă.</div>'}</div>
   ${missing.length?`<div class="card"><b>Încă nescanați (${missing.length})</b><div class="mut">${missing.map(x=>esc(x.p.name)).join(', ')}</div></div>`:''}
-  ${res.length?'<button class="btn sec" id="clr">Șterge toate rezultatele</button>':''}`;
+  ${res.length?'<button class="btn" id="endtest">Încheie testul și începe unul nou</button><div class="mut" style="margin:-2px 0 10px">Salvează lista în Progres, ca să vezi cum evoluează fiecare după mai multe teste.</div><button class="btn sec" id="clr">Șterge toate rezultatele</button>':''}`;
   $('#sort').value=sortMode;$('#sort').onchange=e=>{sortMode=e.target.value;renderList();};
   $('#cp').onclick=()=>copyText(shareText());
   if($('#sh'))$('#sh').onclick=()=>navigator.share({text:shareText()}).catch(()=>{});
-  box.querySelectorAll('.swipe').forEach(wireSwipe);
+  box.querySelectorAll('.swipe').forEach(el=>{const idx=+el.dataset.idx;
+    wireSwipe(el,()=>editSaved(idx),()=>{if(confirm('Ștergi rezultatul lui '+pname(idx)+'?')){st.results=st.results.filter(x=>x.idx!==idx);save();renderList();return true;}return false;});});
+  if($('#endtest'))$('#endtest').onclick=()=>{
+    const def=`${st.settings.title} · ${fmtDate(Date.now())}`;
+    const name=prompt('Numele testului (apare în tabelul de progres):',def);
+    if(name===null)return;
+    st.history.push({name:name.trim()||def,date:Date.now(),max:maxTotal(),results:st.results});
+    st.results=[];save();renderList();
+    toast('Test salvat în Progres. Dacă urmează alt test, verifică baremul și titlul.',6000);
+  };
   if($('#clr'))$('#clr').onclick=()=>{if(confirm('Ștergi TOATE rezultatele? Copiază lista înainte dacă ai nevoie de ea.')){st.results=[];save();renderList();}};
 }
 // swipe left to delete (pointer events, no library); a plain tap opens the result for correction
-function wireSwipe(el){
-  const row=el.querySelector('.srow'),idx=+el.dataset.idx;
+function wireSwipe(el,onTap,onDel){
+  const row=el.querySelector('.srow');
   let x0=0,y0=0,dx=0,active=false,locked=false,moved=false;
   el.addEventListener('pointerdown',e=>{active=true;locked=false;moved=false;dx=0;x0=e.clientX;y0=e.clientY;row.style.transition='none';});
   el.addEventListener('pointermove',e=>{
@@ -465,11 +485,45 @@ function wireSwipe(el){
     if(!active)return;active=false;row.style.transition='transform .2s';
     if(locked&&dx<-el.offsetWidth*0.4){
       row.style.transform='translateX(-100%)';
-      setTimeout(()=>{if(confirm('Ștergi rezultatul lui '+pname(idx)+'?')){st.results=st.results.filter(x=>x.idx!==idx);save();renderList();}else row.style.transform='';},200);
+      setTimeout(()=>{if(!onDel())row.style.transform='';},200);
     }else row.style.transform='';
   };
   el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
-  el.addEventListener('click',()=>{if(moved){moved=false;return;}editSaved(idx);});
+  el.addEventListener('click',()=>{if(moved){moved=false;return;}onTap();});
+}
+
+// ---------- progress ----------
+const fmtDate=t=>new Date(t).toLocaleDateString('ro-RO',{day:'2-digit',month:'2-digit'});
+let pSort='delta';
+function renderProgress(){
+  const box=$('#progress');
+  const tests=st.history.map(h=>({name:h.name,date:h.date,max:h.max||100,map:Object.fromEntries(h.results.map(r=>[r.idx,r.total]))}));
+  if(st.results.length)tests.push({name:'Test curent',date:null,max:maxTotal(),map:Object.fromEntries(st.results.map(r=>[r.idx,r.total]))});
+  const rows=[];
+  for(let i=1;i<=31;i++){
+    const sc=tests.map(t=>t.map[i]);
+    const have=sc.map((v,k)=>v==null?null:v*100/tests[k].max).filter(v=>v!=null);
+    if(!have.length)continue;
+    rows.push({i,sc,delta:have.length>1?Math.round(have[have.length-1]-have[0]):null,avg:Math.round(have.reduce((a,b)=>a+b,0)/have.length)});
+  }
+  if(pSort==='name')rows.sort((a,b)=>pname(a.i).localeCompare(pname(b.i)));
+  else if(pSort==='avg')rows.sort((a,b)=>b.avg-a.avg);
+  else rows.sort((a,b)=>(b.delta==null?-1e9:b.delta)-(a.delta==null?-1e9:a.delta));
+  const dcell=d=>d==null?'<span class="mut">–</span>':`<b style="color:var(--${d>0?'ok':d<0?'bad':'mut'})">${d>0?'▲ +'+d:d<0?'▼ '+d:'= 0'}</b>`;
+  const table=rows.length?`<div class="tw"><table class="pt"><thead><tr><th>Nume</th>${tests.map(t=>`<th>${esc(t.name)}${t.date?'<div>'+fmtDate(t.date)+'</div>':''}</th>`).join('')}<th>Progres</th><th>Medie</th></tr></thead><tbody>${
+    rows.map(r=>`<tr><td>${esc(pname(r.i))}</td>${r.sc.map((v,k)=>v==null?'<td class="mut">–</td>':`<td><span class="dot i" style="background:${scoreColor(v,tests[k].max)}"></span>${v}</td>`).join('')}<td>${dcell(r.delta)}</td><td>${r.avg}</td></tr>`).join('')
+  }</tbody></table></div>`:'<div class="mut">Încă nu există rezultate. Salvează rezultate în fila Rezultate, apoi apasă „Încheie testul” ca să începi un test nou.</div>';
+  box.innerHTML=`<div class="card">
+    <select id="psort"><option value="delta">Cel mai mare progres primul</option><option value="avg">După medie</option><option value="name">După nume</option></select>
+    ${table}
+    ${tests.length===1&&rows.length?'<div class="mut" style="margin-top:8px">Progresul apare după cel puțin două teste.</div>':''}
+    <div class="mut" style="margin-top:8px">Progres = scorul ultimului test minus primul (pe scara 0–100). Medie = media tuturor testelor.</div></div>
+  ${st.history.length?`<div class="card"><b>Teste încheiate</b><div class="mut" style="margin-bottom:4px">Atinge ca să redenumești · trage spre stânga ca să ștergi</div>${
+    st.history.map((h,k)=>`<div class="swipe" data-k="${k}"><div class="sbg">Șterge</div><div class="srow"><div><b>${esc(h.name)}</b><div class="mut">${fmtDate(h.date)} · ${h.results.length} rezultate</div></div></div></div>`).join('')}</div>`:''}`;
+  $('#psort').value=pSort;$('#psort').onchange=e=>{pSort=e.target.value;renderProgress();};
+  box.querySelectorAll('.swipe').forEach(el=>{const k=+el.dataset.k;
+    wireSwipe(el,()=>{const n=prompt('Redenumește testul:',st.history[k].name);if(n&&n.trim()){st.history[k].name=n.trim();save();renderProgress();}},
+      ()=>{if(confirm('Ștergi testul „'+st.history[k].name+'”? Dispare din tabelul de progres.')){st.history.splice(k,1);save();renderProgress();return true;}return false;});});
 }
 
 // ---------- people ----------
