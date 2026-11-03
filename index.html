@@ -21,7 +21,7 @@ nav button b{display:block;font-size:20px;font-weight:400}
 nav button.on{color:var(--pri)}
 .btn{display:block;width:100%;border:0;border-radius:12px;background:var(--pri);color:#fff;font-size:17px;font-weight:600;padding:14px;text-align:center;margin:8px 0}
 .btn.sec{background:var(--card);color:var(--pri);border:1px solid var(--pri)}
-.btn.bad{background:var(--bad)}
+.btn.bad{background:var(--bad);color:#fff}
 .btn.sm{display:inline-block;width:auto;font-size:14px;padding:8px 12px;margin:4px 4px 4px 0}
 input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;width:100%}
 .mut{color:var(--mut);font-size:13px}
@@ -31,6 +31,12 @@ input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:
 .zoom canvas{width:100%;display:block}
 .zoom.z canvas{width:240%}
 .row{display:flex;gap:8px;align-items:center}
+.dot{width:16px;height:16px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}
+.swipe{position:relative;overflow:hidden;border-bottom:1px solid var(--line);touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.swipe:last-child{border-bottom:0}
+.sbg{position:absolute;inset:0;background:var(--bad);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:flex-end;padding-right:16px}
+.srow{position:relative;background:var(--card);display:flex;justify-content:space-between;align-items:center;padding:10px 0;will-change:transform}
+.qa{display:block;width:100%;text-align:left;background:none;border:0;padding:4px 0;font:inherit;font-size:13px}
 .prow{display:grid;grid-template-columns:28px 54px 1fr 80px;gap:6px;align-items:center;margin-bottom:6px}
 .prow input{padding:6px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:13px}
@@ -50,6 +56,7 @@ input[type=file]{display:none}
   <div class="card">
     <label class="btn">📷 Scanează un test<input type="file" accept="image/*" capture="environment" id="f-test"></label>
     <label class="btn sec">Alege o poză din galerie<input type="file" accept="image/*" id="f-test2"></label>
+    <button class="btn sec" id="manual">✍️ Introdu manual (dacă scanarea nu merge)</button>
     <div class="mut">Ține foaia dreaptă (codul sus-dreapta), cu toate cele 4 pătrate negre din colțuri în cadru, lumină bună, telefonul drept deasupra foii.</div>
   </div>
   <div id="result"></div>
@@ -250,6 +257,13 @@ function load(){
 function save(){try{localStorage.setItem('tf_v1',JSON.stringify(st));}catch(e){toast('Nu s-a putut salva în acest browser.');}}
 function toast(m,ms=3500){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',ms);}
 const maxTotal=()=>st.settings.base+30*st.settings.pts;
+// red (lowest possible score) -> yellow -> green (full marks)
+const scoreColor=t=>{
+  const b=st.settings.base,f=Math.max(0,Math.min(1,(t-b)/Math.max(1,maxTotal()-b)));
+  const A=[220,38,38],M=[250,204,21],G=[22,163,74];          // red -> yellow -> green, blended smoothly
+  const [p,q,u]=f<0.5?[A,M,f*2]:[M,G,(f-0.5)*2];
+  return `rgb(${p.map((v,i)=>(v+(q[i]-v)*u).toFixed(1)).join(',')})`;
+};
 const pname=i=>{const p=st.people[i-1];return p&&p.name?p.name:`(persoana #${i})`;};
 
 // ---------- navigation ----------
@@ -264,14 +278,15 @@ function show(v){
 // ---------- scanning ----------
 let cur=null;
 $('#f-test').onchange=e=>onFile(e,'test');$('#f-test2').onchange=e=>onFile(e,'test');
+$('#manual').onclick=()=>startManual();
 async function onFile(e,mode){
   const f=e.target.files[0];e.target.value='';if(!f)return;
   $('#busy').style.display='flex';await new Promise(r=>setTimeout(r,40));
   try{
     const out=await scanFile(f);
-    if(out.err){toast(out.err,6000);return;}
+    if(out.err){toast(out.err+' Poți introduce răspunsurile manual.',7000);return;}
     if(mode==='key'){applyKey(out);}
-    else{cur=out;show('scan');renderResult();}
+    else{cur=out;cur.ov=newOv();show('scan');renderResult();}
   }catch(err){console.error(err);toast(err.message||'Nu am putut citi poza.',7000);}
   finally{$('#busy').style.display='none';}
 }
@@ -309,15 +324,16 @@ function paintOverlay(){
   const ctx=cv.getContext('2d'),id=ctx.createImageData(wp.w,wp.h);
   for(let i=0;i<wp.g.length;i++){const v=wp.g[i];id.data[4*i]=id.data[4*i+1]=id.data[4*i+2]=v;id.data[4*i+3]=255;}
   ctx.putImageData(id,0,0);
-  const GREEN=['#16a34a','rgba(22,163,74,.55)'],RED=['#dc2626','rgba(220,38,38,.55)'],BLUE=['#2563eb','rgba(37,99,235,.55)'],AMBER=['#d97706','rgba(217,119,6,.55)'];
+  const GREEN=['#16a34a','rgba(22,163,74,.55)'],RED=['#dc2626','rgba(220,38,38,.55)'],BLUE=['#2563eb','rgba(37,99,235,.55)'],AMBER=['#d97706','rgba(217,119,6,.55)'],YELLOW=['#eab308','rgba(250,204,21,.7)'];
   const disk=(o,c)=>{ctx.beginPath();ctx.arc(o.x*S,o.y*S,10*S,0,7);ctx.fillStyle=c[1];ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=c[0];ctx.stroke();};
   const ring=(o,c)=>{ctx.beginPath();ctx.arc(o.x*S,o.y*S,12.5*S,0,7);ctx.lineWidth=5;ctx.strokeStyle=c[0];ctx.stroke();};
   L.code.forEach((o,i)=>{if(raw.code[i]>thr)disk(o,BLUE);});
   L.q.forEach((col,c)=>col.forEach((opts,q)=>{
     const k=st.key[c][q],ki=k?opts.findIndex(o=>o.label===k):-1,a=r.ans[c][q];
     const good=a.s==='ok'&&ki>=0&&a.i===ki;
-    raw.q[c][q].forEach((f,i)=>{if(f>thr)disk(opts[i],ki<0?AMBER:(good?GREEN:RED));});
-    if(ki>=0&&!good)ring(opts[ki],GREEN);
+    const marked=a.s==='ok'?[a.i]:(a.s==='double'?raw.q[c][q].map((f,i)=>f>thr?i:-1).filter(i=>i>=0):[]);
+    marked.forEach(i=>disk(opts[i],ki<0?AMBER:(good?GREEN:RED)));
+    if(ki>=0&&!good){if(marked.includes(ki))ring(opts[ki],YELLOW);else disk(opts[ki],YELLOW);}
   }));
   // text above the code
   const p=cur.sel?st.people[cur.sel-1]:null;
@@ -331,9 +347,23 @@ function paintOverlay(){
   fit(line2,200*S,21*S);ctx.fillText(line2,368*S,45*S);
 }
 
+function newOv(){return [0,1,2].map(()=>Array(10).fill(null));}
+function zeroRaw(){return {code:[0,0,0,0,0],q:layout().q.map(col=>col.map(opts=>opts.map(()=>0)))};}
+function effective(){ // scanner reading + manual corrections
+  const r=interpret(cur.raw,st.settings.thr);
+  r.ans.forEach((col,c)=>col.forEach((a,q)=>{const o=cur.ov[c][q];if(o!=null)col[q]=o<0?{i:-1,s:'blank'}:{i:o,s:'ok'};}));
+  return r;
+}
+function startManual(){cur={wp:null,raw:zeroRaw(),sel:0,ov:newOv(),manual:true};show('scan');renderResult();}
+function editSaved(idx){
+  const e=st.results.find(x=>x.idx===idx);
+  if(!e||!e.ans){toast('Acest rezultat a fost salvat de o versiune veche și nu poate fi corectat. Rescanează foaia.',5000);return;}
+  cur={wp:null,raw:zeroRaw(),sel:idx,ov:[0,1,2].map(c=>e.ans.slice(c*10,c*10+10)),manual:true,editing:true};
+  show('scan');renderResult();
+}
 function renderResult(){
   const box=$('#result');if(!cur){box.innerHTML='';return;}
-  const s=st.settings,r=interpret(cur.raw,s.thr);
+  const s=st.settings,r=effective();
   if(cur.sel==null)cur.sel=(r.idx>=1&&r.idx<=31)?r.idx:0;
   const cnt=scoreOf(r.ans,st.key),keyOk=st.key.some(c=>c.some(Boolean));
   const tot=s.base+cnt.reduce((a,b)=>a+b,0)*s.pts;
@@ -341,33 +371,39 @@ function renderResult(){
   let issues=0;r.ans.forEach(c=>c.forEach(a=>{if(a.s!=='ok')issues++;}));
   const opts=['<option value="0">— alege persoana —</option>'].concat(st.people.map((p,i)=>`<option value="${i+1}" ${cur.sel===i+1?'selected':''}>#${i+1} · ${esc(p.name||'(fără nume)')}${p.group?' · '+esc(p.group):''}</option>`)).join('');
   const det=r.ans.map((col,c)=>`<div><b>Cap. ${esc(s.chapters[c])}: ${cnt[c]*s.pts}/${10*s.pts}</b>`+col.map((a,q)=>{
-    const g=label(c,q,a),k=st.key[c][q],ok=g&&k&&g===k;
-    return `<div class="${ok?'ok':'bad'}">${q+1}. ${g||(a.s==='double'?'2×':'–')} ${ok?'✓':'✗'}${!ok&&k?' ('+k+')':''}</div>`;}).join('')+'</div>').join('');
+    const g=label(c,q,a),k=st.key[c][q],ok=g&&k&&g===k,ed=cur.ov[c][q]!=null;
+    return `<button class="qa ${ok?'ok':'bad'}" data-c="${c}" data-q="${q}">${q+1}. ${g||(a.s==='double'?'2×':'–')} ${ok?'✓':'✗'}${!ok&&k?' ('+k+')':''}${ed?' ✎':''}</button>`;}).join('')+'</div>').join('');
+  const head=cur.editing?'Corectezi un rezultat salvat':cur.manual?'Introducere manuală':`Cod citit: ${r.digits.length?r.digits.join(' · '):'niciunul'} → persoana #${r.idx||'?'}`;
   box.innerHTML=`<div class="card">
-    <div class="mut">Cod citit: ${r.digits.length?r.digits.join(' · '):'niciunul'} → persoana #${r.idx||'?'}</div>
-    <select id="sel">${opts}</select>
+    <div class="mut">${head}</div>
+    <select id="sel" ${cur.editing?'disabled':''}>${opts}</select>
     <div class="big" style="margin-top:8px">${tot} / ${maxTotal()}</div>
     <div class="mut">${s.base} puncte din oficiu + ${cnt.reduce((a,b)=>a+b,0)} răspunsuri corecte × ${s.pts}</div>
     ${keyOk?'':'<div class="bad">Nu există barem — setează-l în fila Barem.</div>'}
     ${issues?`<div class="bad">${issues} răspuns(uri) necompletate sau marcate dublu (se numără greșit).</div>`:''}
-    <div class="grid3" style="margin:10px 0">${det}</div>
-    <button class="btn" id="save">Salvează în listă</button>
+    <div class="mut" style="margin-top:8px">Scanerul a greșit? Atinge un răspuns ca să-l corectezi (A → F → gol; a → b → c → gol). ✎ = corectat de tine.</div>
+    <div class="grid3" style="margin:6px 0 10px">${det}</div>
+    <button class="btn" id="save">${cur.editing?'Salvează corectura':'Salvează în listă'}</button>
     <button class="btn sec" id="disc">Anulează</button>
-    <details open><summary class="mut">Poza corectată — verde: corect · roșu: greșit (cercul verde = răspunsul corect) · albastru: cod</summary>
+    ${cur.wp?`<details open><summary class="mut">Poza corectată — verde: corect · roșu: greșit · galben: răspunsul care trebuia ales · albastru: cod</summary>
       <div class="zoom" id="zm"><canvas id="ov"></canvas></div>
-      <div class="mut">Atinge poza ca să o mărești / micșorezi.</div></details>
+      <div class="mut">Atinge poza ca să o mărești / micșorezi.</div></details>`:''}
   </div>`;
-  paintOverlay();
-  $('#ov').onclick=()=>$('#zm').classList.toggle('z');
+  if(cur.wp){paintOverlay();$('#ov').onclick=()=>$('#zm').classList.toggle('z');}
   $('#sel').onchange=e=>{cur.sel=+e.target.value;paintOverlay();};
-  $('#disc').onclick=()=>{cur=null;renderResult();};
+  box.querySelectorAll('.qa').forEach(b=>b.onclick=()=>{
+    const c=+b.dataset.c,q=+b.dataset.q,a=cur.r.ans[c][q],n=KEYOPTS(q).length,v=a.s==='ok'?a.i:-1,y=window.scrollY;
+    cur.ov[c][q]=(v+1>=n)?-1:v+1;renderResult();window.scrollTo(0,y);
+  });
+  $('#disc').onclick=()=>{const was=cur.editing;cur=null;renderResult();if(was)show('list');};
   $('#save').onclick=()=>{
     if(!cur.sel){toast('Alege mai întâi persoana.');return;}
     const ex=st.results.findIndex(x=>x.idx===cur.sel);
-    if(ex>=0&&!confirm(pname(cur.sel)+' este deja în listă. Înlocuiești rezultatul?'))return;
-    const entry={idx:cur.sel,scores:cnt.map(n=>n*s.pts),total:tot,t:Date.now(),issues,v:2};
+    if(ex>=0&&!cur.editing&&!confirm(pname(cur.sel)+' este deja în listă. Înlocuiești rezultatul?'))return;
+    const entry={idx:cur.sel,scores:cnt.map(n=>n*s.pts),total:tot,t:(ex>=0&&cur.editing)?st.results[ex].t:Date.now(),issues,v:2,ans:r.ans.flat().map(a=>a.s==='ok'?a.i:-1)};
     if(ex>=0)st.results[ex]=entry;else st.results.push(entry);
-    save();toast('Salvat: '+pname(cur.sel)+' – '+tot+'/'+maxTotal());cur=null;renderResult();
+    save();toast('Salvat: '+pname(cur.sel)+' – '+tot+'/'+maxTotal());
+    const was=cur.editing;cur=null;renderResult();if(was)show('list');
   };
 }
 
@@ -403,14 +439,37 @@ function renderList(){
     <button class="btn" id="cp">Copiază pentru WhatsApp</button>
     ${navigator.share?'<button class="btn sec" id="sh">Trimite…</button>':''}
   </div>
-  <div class="card">${res.length?res.map(e=>`<div class="item"><div><b>${esc(pname(e.idx))}</b> <span class="mut">${esc(st.people[e.idx-1].group)}</span><div class="mut">${e.scores.join(' / ')}${e.issues?' · '+e.issues+' neclare':''}</div></div><div class="row"><b>${e.total}/${maxTotal()}</b><button class="btn sm bad" data-del="${e.idx}">×</button></div></div>`).join(''):'<div class="mut">Niciun rezultat încă.</div>'}</div>
+  <div class="card">${res.length?'<div class="mut" style="margin-bottom:4px">Atinge un rezultat ca să-l corectezi · trage-l spre stânga ca să-l ștergi</div>'+res.map(e=>`<div class="swipe" data-idx="${e.idx}"><div class="sbg">Șterge</div><div class="srow"><div><b>${esc(pname(e.idx))}</b> <span class="mut">${esc(st.people[e.idx-1].group)}</span><div class="mut">${e.scores.join(' / ')}${e.issues?' · '+e.issues+' neclare':''}</div></div><div class="row"><span class="dot" style="background:${scoreColor(e.total)}"></span><b>${e.total}/${maxTotal()}</b></div></div></div>`).join(''):'<div class="mut">Niciun rezultat încă.</div>'}</div>
   ${missing.length?`<div class="card"><b>Încă nescanați (${missing.length})</b><div class="mut">${missing.map(x=>esc(x.p.name)).join(', ')}</div></div>`:''}
   ${res.length?'<button class="btn sec" id="clr">Șterge toate rezultatele</button>':''}`;
   $('#sort').value=sortMode;$('#sort').onchange=e=>{sortMode=e.target.value;renderList();};
   $('#cp').onclick=()=>copyText(shareText());
   if($('#sh'))$('#sh').onclick=()=>navigator.share({text:shareText()}).catch(()=>{});
-  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const i=+b.dataset.del;if(confirm('Ștergi rezultatul lui '+pname(i)+'?')){st.results=st.results.filter(x=>x.idx!==i);save();renderList();}});
+  box.querySelectorAll('.swipe').forEach(wireSwipe);
   if($('#clr'))$('#clr').onclick=()=>{if(confirm('Ștergi TOATE rezultatele? Copiază lista înainte dacă ai nevoie de ea.')){st.results=[];save();renderList();}};
+}
+// swipe left to delete (pointer events, no library); a plain tap opens the result for correction
+function wireSwipe(el){
+  const row=el.querySelector('.srow'),idx=+el.dataset.idx;
+  let x0=0,y0=0,dx=0,active=false,locked=false,moved=false;
+  el.addEventListener('pointerdown',e=>{active=true;locked=false;moved=false;dx=0;x0=e.clientX;y0=e.clientY;row.style.transition='none';});
+  el.addEventListener('pointermove',e=>{
+    if(!active)return;const mx=e.clientX-x0,my=e.clientY-y0;
+    if(!locked){
+      if(Math.abs(mx)>10&&Math.abs(mx)>Math.abs(my)*1.5){locked=true;moved=true;try{el.setPointerCapture(e.pointerId);}catch(_){}}
+      else if(Math.abs(my)>10){active=false;return;}
+    }
+    if(locked){dx=Math.min(0,mx);row.style.transform=`translateX(${dx}px)`;}
+  });
+  const end=()=>{
+    if(!active)return;active=false;row.style.transition='transform .2s';
+    if(locked&&dx<-el.offsetWidth*0.4){
+      row.style.transform='translateX(-100%)';
+      setTimeout(()=>{if(confirm('Ștergi rezultatul lui '+pname(idx)+'?')){st.results=st.results.filter(x=>x.idx!==idx);save();renderList();}else row.style.transform='';},200);
+    }else row.style.transform='';
+  };
+  el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
+  el.addEventListener('click',()=>{if(moved){moved=false;return;}editSaved(idx);});
 }
 
 // ---------- people ----------
