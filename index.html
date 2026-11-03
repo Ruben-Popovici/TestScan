@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ro">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -27,7 +27,9 @@ input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:
 .mut{color:var(--mut);font-size:13px}
 .ok{color:var(--ok)}.bad{color:var(--bad)}
 .big{font-size:34px;font-weight:700}
-canvas{width:100%;border-radius:8px;border:1px solid var(--line)}
+.zoom{overflow:auto;max-height:75vh;border-radius:8px;border:1px solid var(--line);margin-top:8px}
+.zoom canvas{width:100%;display:block}
+.zoom.z canvas{width:240%}
 .row{display:flex;gap:8px;align-items:center}
 .prow{display:grid;grid-template-columns:28px 54px 1fr 80px;gap:6px;align-items:center;margin-bottom:6px}
 .prow input{padding:6px}
@@ -41,54 +43,45 @@ input[type=file]{display:none}
 </style>
 </head>
 <body>
-<div id="toast"></div><div id="busy">Reading the sheet…</div>
+<div id="toast"></div><div id="busy">Se citește foaia…</div>
 
 <section id="v-scan" class="view on">
-  <h2>Scan</h2>
+  <h2>Scanare</h2>
   <div class="card">
-    <label class="btn">📷 Scan a test<input type="file" accept="image/*" capture="environment" id="f-test"></label>
-    <label class="btn sec">Choose a photo from the library<input type="file" accept="image/*" id="f-test2"></label>
-    <div class="mut">Keep the page upright (code at the top right), all 4 black corner squares in the frame, good light, phone straight above the page.</div>
+    <label class="btn">📷 Scanează un test<input type="file" accept="image/*" capture="environment" id="f-test"></label>
+    <label class="btn sec">Alege o poză din galerie<input type="file" accept="image/*" id="f-test2"></label>
+    <div class="mut">Ține foaia dreaptă (codul sus-dreapta), cu toate cele 4 pătrate negre din colțuri în cadru, lumină bună, telefonul drept deasupra foii.</div>
   </div>
   <div id="result"></div>
 </section>
 
-<section id="v-list" class="view"><h2>Results</h2><div id="list"></div></section>
-<section id="v-people" class="view"><h2>People</h2><div id="people"></div></section>
-<section id="v-key" class="view"><h2>Answer key</h2><div id="key"></div></section>
-<section id="v-set" class="view"><h2>Settings</h2><div id="set"></div></section>
+<section id="v-list" class="view"><h2>Rezultate</h2><div id="list"></div></section>
+<section id="v-people" class="view"><h2>Persoane</h2><div id="people"></div></section>
+<section id="v-key" class="view"><h2>Barem</h2><div id="key"></div></section>
+<section id="v-set" class="view"><h2>Setări</h2><div id="set"></div></section>
 
 <nav>
-  <button data-v="scan" class="on"><b>📷</b>Scan</button>
-  <button data-v="list"><b>📋</b>Results</button>
-  <button data-v="people"><b>👥</b>People</button>
-  <button data-v="key"><b>✅</b>Key</button>
-  <button data-v="set"><b>⚙️</b>Settings</button>
+  <button data-v="scan" class="on"><b>📷</b>Scanare</button>
+  <button data-v="list"><b>📋</b>Rezultate</button>
+  <button data-v="people"><b>👥</b>Persoane</button>
+  <button data-v="key"><b>✅</b>Barem</button>
+  <button data-v="set"><b>⚙️</b>Setări</button>
 </nav>
 
 <!-- ================= CORE (pure logic, no DOM) ================= -->
 <script id="core">
-// ---- Sheet geometry, in pixels of the reference template image (512 x 687) ----
-// Adjust these numbers if the green/red dots in the check image are not centered on the circles.
+// Sheet geometry in pixels of the reference template image (512 x 687).
+// Circle centers were measured on the real template; the 4 black squares are the alignment markers.
 const REF_W=512, REF_H=687, S=2, R_IN=6.5, DARK_RATIO=0.66, MAXSIDE=1800;
-const MARKERS=[[18,18],[491,18],[18,665],[491,665]];          // centers of the 4 black squares: TL, TR, BL, BR
-const CODE_X=[315,348,381,415,449], CODE_Y=101;                // the 5 code circles
-const TF_Y=[242,287,331,375,419], ABC_Y=[464,508,552,596,637]; // row centers: questions 1-5, 6-10
-const COLS=[                                                    // 3 chapters, x centers of the circles
-  {tf:[69,108],  abc:[68,102,136],  abc10:[70,107,140]},
-  {tf:[236,272], abc:[232,267,301], abc10:[235,268,303]},
-  {tf:[395,433], abc:[394,427,461], abc10:[396,431,463]},
-];
-
+const MARKERS=[[18.3,16.8],[488.8,18.3],[18.3,665.8],[491.3,665.8]];   // TL, TR, BL, BR
+const PTS={"code":[[313,101],[347,101],[381,101],[415,101],[448.5,101]],"q":[[[[69,240],[108,240]],[[69,285.5],[108,285.5]],[[68.5,328.5],[107.5,329.5]],[[69,373.5],[107,374]],[[68.5,416.5],[106.5,416.5]],[[68.5,462.5],[102,463],[135.5,462.5]],[[68,505.5],[102,505.5],[135.5,505.5]],[[68,548.5],[102,548.5],[135.5,548.5]],[[68,591.5],[102,591.5],[135.5,591.5]],[[73,635],[106.5,634.5],[140,635]]],[[[234.5,242.5],[272.5,242.5]],[[234,288],[272,288]],[[233.5,331.5],[272,332]],[[234,376],[271.5,376.5]],[[233.5,419],[271.5,419.5]],[[233.5,465.5],[267,465.5],[300.5,465.5]],[[233,508],[267,508],[300.5,508]],[[233,551.5],[267,551.5],[300.5,551.5]],[[233,594.5],[267,594.5],[300.5,594.5]],[[237.5,637.5],[271,637.5],[304.5,637.5]]],[[[395,242],[433.5,242]],[[394.5,287],[433,287]],[[394.5,331],[433,331]],[[394.5,375.5],[432.5,375.5]],[[394,418.5],[431.5,418.5]],[[394,464.5],[427.5,464.5],[461,464.5]],[[394,507.5],[427,507.5],[461,507.5]],[[394,550.5],[427,550.5],[461,550.5]],[[394,593.5],[427,593.5],[461,593.5]],[[398,637],[431.5,637],[465,637]]]]};   // {code:[[x,y]x5], q:[chapter][row 0..9][option][x,y]}
+const TF=['A','F'], ABC=['a','b','c'];
+let _L=null;
 function layout(){
-  const code=CODE_X.map((x,i)=>({x,y:CODE_Y,label:String(i+1)}));
-  const q=COLS.map(c=>{
-    const rows=[];
-    for(let r=0;r<5;r++) rows.push(c.tf.map((x,i)=>({x,y:TF_Y[r],label:['A','F'][i]})));
-    for(let r=0;r<5;r++){const xs=r===4?c.abc10:c.abc; rows.push(xs.map((x,i)=>({x,y:ABC_Y[r],label:['a','b','c'][i]})));}
-    return rows;
-  });
-  return {code,q};
+  if(_L)return _L;
+  const code=PTS.code.map(([x,y],i)=>({x,y,label:String(i+1)}));
+  const q=PTS.q.map(col=>col.map((row,r)=>row.map(([x,y],i)=>({x,y,label:(r<5?TF:ABC)[i]}))));
+  return (_L={code,q});
 }
 
 function findMarkers(g,w,h){
@@ -125,16 +118,16 @@ function findMarkers(g,w,h){
     if(area/(bw*bh)<0.6)continue;
     cands.push({x:sx/area,y:sy/area,s:Math.sqrt(area)});
   }
-  if(cands.length<4)return {err:'Could not find the 4 black corner squares. Get all four in the frame, with good light.'};
+  if(cands.length<4)return {err:'Nu am găsit cele 4 pătrate negre din colțuri. Pune-le pe toate în cadru, cu lumină bună.'};
   const pick=f=>cands.reduce((a,b)=>f(b)>f(a)?b:a);
   const TL=pick(c=>-(c.x+c.y)),TR=pick(c=>c.x-c.y),BL=pick(c=>c.y-c.x),BR=pick(c=>c.x+c.y);
   const four=[TL,TR,BL,BR];
-  if(new Set(four).size<4)return {err:'Could not tell the 4 corner squares apart. Retake with the whole page in frame.'};
+  if(new Set(four).size<4)return {err:'Nu am putut deosebi cele 4 pătrate din colțuri. Refă poza cu toată foaia în cadru.'};
   const sizes=four.map(c=>c.s).sort((a,b)=>a-b),med=(sizes[1]+sizes[2])/2;
-  if(four.some(c=>c.s<med*0.55||c.s>med*1.8))return {err:'The corner squares look inconsistent (something else dark in the picture?). Retake on a plain background.'};
+  if(four.some(c=>c.s<med*0.55||c.s>med*1.8))return {err:'Pătratele din colțuri par inconsistente (altceva negru în poză?). Refă poza pe un fundal simplu.'};
   const d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   const aspect=(d(TL,TR)+d(BL,BR))/(d(TL,BL)+d(TR,BR));
-  if(aspect<0.55||aspect>0.95)return {err:'The page looks rotated or too tilted. Hold the phone in portrait with the page upright.'};
+  if(aspect<0.55||aspect>0.95)return {err:'Foaia pare rotită sau prea înclinată. Ține telefonul vertical, cu foaia dreaptă.'};
   return {pts:four.map(c=>[c.x,c.y])};
 }
 
@@ -176,7 +169,7 @@ function warp(g,w,h,H){
   return {g:out,w:TW,h:TH};
 }
 
-function bgGrid(wp){ // local "paper brightness" estimate (90th percentile per block) to cope with shadows
+function bgGrid(wp){ // local "paper brightness" (90th percentile per block) to cope with shadows
   const B=80,gx=Math.ceil(wp.w/B),gy=Math.ceil(wp.h/B),bg=new Float32Array(gx*gy);
   for(let by=0;by<gy;by++)for(let bx=0;bx<gx;bx++){
     const hist=new Uint32Array(256);let n=0;
@@ -194,9 +187,9 @@ function bgAt(G,x,y){
   const a=G.bg[y0*G.gx+x0],b=G.bg[y0*G.gx+x1],c=G.bg[y1*G.gx+x0],d=G.bg[y1*G.gx+x1];
   return (a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty;
 }
-function fillAt(wp,G,cx,cy){ // fraction of dark pixels in a disk, best of 9 small shifts (tolerates small misalignment)
+function fillAt(wp,G,cx,cy){ // fraction of dark pixels in a disk, best of 9 small shifts
   let best=0;const r=R_IN*S;
-  for(const oy of [-3,0,3])for(const ox of [-3,0,3]){
+  for(const oy of [-2,0,2])for(const ox of [-2,0,2]){
     const px=(cx+ox)*S,py=(cy+oy)*S,th=bgAt(G,px,py)*DARK_RATIO;
     let n=0,d=0;
     for(let y=Math.floor(py-r);y<=Math.ceil(py+r);y++)for(let x=Math.floor(px-r);x<=Math.ceil(px+r);x++){
@@ -234,24 +227,30 @@ function scoreOf(ans,key){ // number of correct answers per chapter
 
 <!-- ================= APP (UI, storage) ================= -->
 <script id="app">
-const GROUPS=['0-1','2-3','6-7','8-9','10-11','18-35','35+'];
+const GROUPS=['0-1','2-3','4-5','6-7','8-9','10-11','18-35','35+'];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const DEF=()=>({
-  settings:{title:'1 Samuel 16-18',chapters:['16','17','18'],pts:3,thr:0.55},
+  settings:{title:'1 Samuel 16-18',chapters:['16','17','18'],pts:3,base:10,thr:0.55},
   people:Array.from({length:31},()=>({name:'',group:''})),
   key:[0,1,2].map(()=>Array(10).fill(null)),
   results:[]
 });
 let st=load();
 function load(){
-  try{const s=JSON.parse(localStorage.getItem('tf_v1'));if(s&&s.settings&&s.people)return Object.assign(DEF(),s);}catch(e){}
-  return DEF();
+  let s=null;try{s=JSON.parse(localStorage.getItem('tf_v1'));}catch(e){}
+  const d=DEF();
+  if(!s||!s.settings||!s.people)return d;
+  const out=Object.assign(d,s);
+  out.settings=Object.assign(DEF().settings,s.settings);
+  while(out.people.length<31)out.people.push({name:'',group:''});
+  out.results.forEach(e=>{if(!e.v){e.total+=out.settings.base;e.v=2;}}); // older saves had no base points
+  return out;
 }
-function save(){try{localStorage.setItem('tf_v1',JSON.stringify(st));}catch(e){toast('Could not save to this browser.');}}
+function save(){try{localStorage.setItem('tf_v1',JSON.stringify(st));}catch(e){toast('Nu s-a putut salva în acest browser.');}}
 function toast(m,ms=3500){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',ms);}
-const maxTotal=()=>3*10*st.settings.pts;
-const pname=i=>{const p=st.people[i-1];return p&&p.name?p.name:`(person #${i})`;};
+const maxTotal=()=>st.settings.base+30*st.settings.pts;
+const pname=i=>{const p=st.people[i-1];return p&&p.name?p.name:`(persoana #${i})`;};
 
 // ---------- navigation ----------
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
@@ -263,7 +262,7 @@ function show(v){
 }
 
 // ---------- scanning ----------
-let cur=null,scanMode='test';
+let cur=null;
 $('#f-test').onchange=e=>onFile(e,'test');$('#f-test2').onchange=e=>onFile(e,'test');
 async function onFile(e,mode){
   const f=e.target.files[0];e.target.value='';if(!f)return;
@@ -273,15 +272,28 @@ async function onFile(e,mode){
     if(out.err){toast(out.err,6000);return;}
     if(mode==='key'){applyKey(out);}
     else{cur=out;show('scan');renderResult();}
-  }catch(err){console.error(err);toast('Could not read that photo: '+err.message,6000);}
+  }catch(err){console.error(err);toast(err.message||'Nu am putut citi poza.',7000);}
   finally{$('#busy').style.display='none';}
 }
+// Decoding with fallbacks (blob URL -> createImageBitmap -> data URL), because some browsers reject one of them.
+async function loadBitmap(file){
+  const url=URL.createObjectURL(file);
+  try{const img=new Image();img.src=url;await img.decode();return {src:img,w:img.naturalWidth,h:img.naturalHeight,done:()=>URL.revokeObjectURL(url)};}
+  catch(e){URL.revokeObjectURL(url);}
+  try{const b=await createImageBitmap(file);return {src:b,w:b.width,h:b.height,done:()=>{}};}catch(e){}
+  try{
+    const dataUrl=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>rej(fr.error);fr.readAsDataURL(file);});
+    const img=new Image();img.src=dataUrl;await img.decode();
+    return {src:img,w:img.naturalWidth,h:img.naturalHeight,done:()=>{}};
+  }catch(e){}
+  throw new Error('Formatul pozei nu poate fi citit. Pe iPhone: Setări → Cameră → Formate → „Cel mai compatibil”, apoi refă poza.');
+}
 async function scanFile(file){
-  const img=new Image(),url=URL.createObjectURL(file);img.src=url;await img.decode();
-  const sc=Math.min(1,MAXSIDE/Math.max(img.naturalWidth,img.naturalHeight));
-  const w=Math.round(img.naturalWidth*sc),h=Math.round(img.naturalHeight*sc);
+  const bm=await loadBitmap(file);
+  const sc=Math.min(1,MAXSIDE/Math.max(bm.w,bm.h));
+  const w=Math.round(bm.w*sc),h=Math.round(bm.h*sc);
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-  const ctx=cv.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);URL.revokeObjectURL(url);
+  const ctx=cv.getContext('2d',{willReadFrequently:true});ctx.drawImage(bm.src,0,0,w,h);bm.done();
   const d=ctx.getImageData(0,0,w,h).data,g=new Uint8ClampedArray(w*h);
   for(let i=0;i<w*h;i++)g[i]=(d[4*i]*77+d[4*i+1]*150+d[4*i+2]*29)>>8;
   const m=findMarkers(g,w,h);if(m.err)return m;
@@ -289,53 +301,73 @@ async function scanFile(file){
   return {wp,raw:analyze(wp)};
 }
 
-function drawOverlay(canvas,wp,raw,thr){
-  canvas.width=wp.w;canvas.height=wp.h;
-  const ctx=canvas.getContext('2d'),id=ctx.createImageData(wp.w,wp.h);
+// Corrected picture: green = correct, red = wrong (the correct answer gets a green ring), blue = code, text box above the code.
+function paintOverlay(){
+  const cv=$('#ov');if(!cur||!cv)return;
+  const s=st.settings,thr=s.thr,r=cur.r,raw=cur.raw,wp=cur.wp,L=layout();
+  cv.width=wp.w;cv.height=wp.h;
+  const ctx=cv.getContext('2d'),id=ctx.createImageData(wp.w,wp.h);
   for(let i=0;i<wp.g.length;i++){const v=wp.g[i];id.data[4*i]=id.data[4*i+1]=id.data[4*i+2]=v;id.data[4*i+3]=255;}
   ctx.putImageData(id,0,0);
-  const L=layout(),rad=R_IN*S;
-  const dot=(o,f)=>{ctx.beginPath();ctx.arc(o.x*S,o.y*S,rad,0,6.2832);
-    if(f>thr){ctx.fillStyle='rgba(22,163,74,.55)';ctx.fill();ctx.strokeStyle='#16a34a';}else ctx.strokeStyle='rgba(220,38,38,.85)';
-    ctx.lineWidth=2;ctx.stroke();};
-  L.code.forEach((o,i)=>dot(o,raw.code[i]));
-  L.q.forEach((col,c)=>col.forEach((opts,r)=>opts.forEach((o,i)=>dot(o,raw.q[c][r][i]))));
+  const GREEN=['#16a34a','rgba(22,163,74,.55)'],RED=['#dc2626','rgba(220,38,38,.55)'],BLUE=['#2563eb','rgba(37,99,235,.55)'],AMBER=['#d97706','rgba(217,119,6,.55)'];
+  const disk=(o,c)=>{ctx.beginPath();ctx.arc(o.x*S,o.y*S,10*S,0,7);ctx.fillStyle=c[1];ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=c[0];ctx.stroke();};
+  const ring=(o,c)=>{ctx.beginPath();ctx.arc(o.x*S,o.y*S,12.5*S,0,7);ctx.lineWidth=5;ctx.strokeStyle=c[0];ctx.stroke();};
+  L.code.forEach((o,i)=>{if(raw.code[i]>thr)disk(o,BLUE);});
+  L.q.forEach((col,c)=>col.forEach((opts,q)=>{
+    const k=st.key[c][q],ki=k?opts.findIndex(o=>o.label===k):-1,a=r.ans[c][q];
+    const good=a.s==='ok'&&ki>=0&&a.i===ki;
+    raw.q[c][q].forEach((f,i)=>{if(f>thr)disk(opts[i],ki<0?AMBER:(good?GREEN:RED));});
+    if(ki>=0&&!good)ring(opts[ki],GREEN);
+  }));
+  // text above the code
+  const p=cur.sel?st.people[cur.sel-1]:null;
+  const name=p&&p.name?p.name:(cur.sel?`(persoana #${cur.sel})`:'(alege persoana)');
+  const line2=(p&&p.group?p.group+'  ·  ':'')+cur.total+' / '+maxTotal();
+  ctx.fillStyle='rgba(255,255,255,.93)';ctx.fillRect(262*S,6*S,212*S,56*S);
+  ctx.lineWidth=3;ctx.strokeStyle=BLUE[0];ctx.strokeRect(262*S,6*S,212*S,56*S);
+  ctx.fillStyle='#1d4ed8';ctx.textAlign='center';ctx.textBaseline='middle';
+  const fit=(t,maxW,px)=>{do{ctx.font=`700 ${px}px -apple-system,Arial,sans-serif`;if(ctx.measureText(t).width<=maxW||px<=10)break;px-=1;}while(true);};
+  fit(name,200*S,19*S);ctx.fillText(name,368*S,22*S);
+  fit(line2,200*S,21*S);ctx.fillText(line2,368*S,45*S);
 }
 
 function renderResult(){
   const box=$('#result');if(!cur){box.innerHTML='';return;}
   const s=st.settings,r=interpret(cur.raw,s.thr);
   if(cur.sel==null)cur.sel=(r.idx>=1&&r.idx<=31)?r.idx:0;
-  const sc=scoreOf(r.ans,st.key),keyOk=st.key.some(c=>c.some(Boolean));
-  const tot=sc.reduce((a,b)=>a+b,0)*s.pts;
+  const cnt=scoreOf(r.ans,st.key),keyOk=st.key.some(c=>c.some(Boolean));
+  const tot=s.base+cnt.reduce((a,b)=>a+b,0)*s.pts;
+  cur.r=r;cur.total=tot;
   let issues=0;r.ans.forEach(c=>c.forEach(a=>{if(a.s!=='ok')issues++;}));
-  const opts=['<option value="0">— choose person —</option>'].concat(st.people.map((p,i)=>`<option value="${i+1}" ${cur.sel===i+1?'selected':''}>#${i+1} · ${esc(p.name||'(no name yet)')}${p.group?' · '+esc(p.group):''}</option>`)).join('');
-  const det=r.ans.map((col,c)=>`<div><b>Cap. ${esc(s.chapters[c])}: ${sc[c]*s.pts}/${10*s.pts}</b>`+col.map((a,q)=>{
+  const opts=['<option value="0">— alege persoana —</option>'].concat(st.people.map((p,i)=>`<option value="${i+1}" ${cur.sel===i+1?'selected':''}>#${i+1} · ${esc(p.name||'(fără nume)')}${p.group?' · '+esc(p.group):''}</option>`)).join('');
+  const det=r.ans.map((col,c)=>`<div><b>Cap. ${esc(s.chapters[c])}: ${cnt[c]*s.pts}/${10*s.pts}</b>`+col.map((a,q)=>{
     const g=label(c,q,a),k=st.key[c][q],ok=g&&k&&g===k;
     return `<div class="${ok?'ok':'bad'}">${q+1}. ${g||(a.s==='double'?'2×':'–')} ${ok?'✓':'✗'}${!ok&&k?' ('+k+')':''}</div>`;}).join('')+'</div>').join('');
   box.innerHTML=`<div class="card">
-    <div class="mut">Code read: ${r.digits.length?r.digits.join(' · '):'none'} → person #${r.idx||'?'}</div>
+    <div class="mut">Cod citit: ${r.digits.length?r.digits.join(' · '):'niciunul'} → persoana #${r.idx||'?'}</div>
     <select id="sel">${opts}</select>
     <div class="big" style="margin-top:8px">${tot} / ${maxTotal()}</div>
-    ${keyOk?'':'<div class="bad">No answer key yet — set it in the Key tab.</div>'}
-    ${issues?`<div class="bad">${issues} answer(s) blank or double-marked (count as wrong).</div>`:''}
+    <div class="mut">${s.base} puncte din oficiu + ${cnt.reduce((a,b)=>a+b,0)} răspunsuri corecte × ${s.pts}</div>
+    ${keyOk?'':'<div class="bad">Nu există barem — setează-l în fila Barem.</div>'}
+    ${issues?`<div class="bad">${issues} răspuns(uri) necompletate sau marcate dublu (se numără greșit).</div>`:''}
     <div class="grid3" style="margin:10px 0">${det}</div>
-    <button class="btn" id="save">Save to list</button>
-    <button class="btn sec" id="disc">Discard</button>
-    <details><summary class="mut">Check the scan (green = read as filled)</summary>
-      <canvas id="ov"></canvas>
-      <div class="mut">If the dots are not centered on the circles, the geometry needs a tweak.</div></details>
+    <button class="btn" id="save">Salvează în listă</button>
+    <button class="btn sec" id="disc">Anulează</button>
+    <details open><summary class="mut">Poza corectată — verde: corect · roșu: greșit (cercul verde = răspunsul corect) · albastru: cod</summary>
+      <div class="zoom" id="zm"><canvas id="ov"></canvas></div>
+      <div class="mut">Atinge poza ca să o mărești / micșorezi.</div></details>
   </div>`;
-  drawOverlay($('#ov'),cur.wp,cur.raw,s.thr);
-  $('#sel').onchange=e=>{cur.sel=+e.target.value;};
+  paintOverlay();
+  $('#ov').onclick=()=>$('#zm').classList.toggle('z');
+  $('#sel').onchange=e=>{cur.sel=+e.target.value;paintOverlay();};
   $('#disc').onclick=()=>{cur=null;renderResult();};
   $('#save').onclick=()=>{
-    if(!cur.sel){toast('Choose the person first.');return;}
+    if(!cur.sel){toast('Alege mai întâi persoana.');return;}
     const ex=st.results.findIndex(x=>x.idx===cur.sel);
-    if(ex>=0&&!confirm(pname(cur.sel)+' is already in the list. Replace the result?'))return;
-    const entry={idx:cur.sel,scores:sc.map(n=>n*s.pts),total:tot,t:Date.now(),issues};
+    if(ex>=0&&!confirm(pname(cur.sel)+' este deja în listă. Înlocuiești rezultatul?'))return;
+    const entry={idx:cur.sel,scores:cnt.map(n=>n*s.pts),total:tot,t:Date.now(),issues,v:2};
     if(ex>=0)st.results[ex]=entry;else st.results.push(entry);
-    save();toast('Saved: '+pname(cur.sel)+' – '+tot+'/'+maxTotal());cur=null;renderResult();
+    save();toast('Salvat: '+pname(cur.sel)+' – '+tot+'/'+maxTotal());cur=null;renderResult();
   };
 }
 
@@ -361,41 +393,41 @@ function shareText(){
 async function copyText(t){
   try{await navigator.clipboard.writeText(t);}
   catch(e){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();}
-  toast('Copied. Paste it in WhatsApp.');
+  toast('Copiat. Lipește în WhatsApp.');
 }
 function renderList(){
   const box=$('#list'),res=sortedResults(),done=new Set(st.results.map(r=>r.idx));
   const missing=st.people.map((p,i)=>({p,i:i+1})).filter(x=>x.p.name&&!done.has(x.i));
   box.innerHTML=`<div class="card">
-    <select id="sort"><option value="time">Order scanned</option><option value="name">By name</option><option value="group">By group</option><option value="score">By score</option></select>
-    <button class="btn" id="cp">Copy for WhatsApp</button>
-    ${navigator.share?'<button class="btn sec" id="sh">Share…</button>':''}
+    <select id="sort"><option value="time">Ordinea scanării</option><option value="name">După nume</option><option value="group">După grupă</option><option value="score">După scor</option></select>
+    <button class="btn" id="cp">Copiază pentru WhatsApp</button>
+    ${navigator.share?'<button class="btn sec" id="sh">Trimite…</button>':''}
   </div>
-  <div class="card">${res.length?res.map(e=>`<div class="item"><div><b>${esc(pname(e.idx))}</b> <span class="mut">${esc(st.people[e.idx-1].group)}</span><div class="mut">${e.scores.join(' / ')}${e.issues?' · '+e.issues+' unclear':''}</div></div><div class="row"><b>${e.total}/${maxTotal()}</b><button class="btn sm bad" data-del="${e.idx}">×</button></div></div>`).join(''):'<div class="mut">No results yet.</div>'}</div>
-  ${missing.length?`<div class="card"><b>Not scanned yet (${missing.length})</b><div class="mut">${missing.map(x=>esc(x.p.name)).join(', ')}</div></div>`:''}
-  ${res.length?'<button class="btn sec" id="clr">Clear all results</button>':''}`;
+  <div class="card">${res.length?res.map(e=>`<div class="item"><div><b>${esc(pname(e.idx))}</b> <span class="mut">${esc(st.people[e.idx-1].group)}</span><div class="mut">${e.scores.join(' / ')}${e.issues?' · '+e.issues+' neclare':''}</div></div><div class="row"><b>${e.total}/${maxTotal()}</b><button class="btn sm bad" data-del="${e.idx}">×</button></div></div>`).join(''):'<div class="mut">Niciun rezultat încă.</div>'}</div>
+  ${missing.length?`<div class="card"><b>Încă nescanați (${missing.length})</b><div class="mut">${missing.map(x=>esc(x.p.name)).join(', ')}</div></div>`:''}
+  ${res.length?'<button class="btn sec" id="clr">Șterge toate rezultatele</button>':''}`;
   $('#sort').value=sortMode;$('#sort').onchange=e=>{sortMode=e.target.value;renderList();};
   $('#cp').onclick=()=>copyText(shareText());
   if($('#sh'))$('#sh').onclick=()=>navigator.share({text:shareText()}).catch(()=>{});
-  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const i=+b.dataset.del;if(confirm('Delete result of '+pname(i)+'?')){st.results=st.results.filter(x=>x.idx!==i);save();renderList();}});
-  if($('#clr'))$('#clr').onclick=()=>{if(confirm('Delete ALL results? Copy the list first if you need it.')){st.results=[];save();renderList();}};
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const i=+b.dataset.del;if(confirm('Ștergi rezultatul lui '+pname(i)+'?')){st.results=st.results.filter(x=>x.idx!==i);save();renderList();}});
+  if($('#clr'))$('#clr').onclick=()=>{if(confirm('Ștergi TOATE rezultatele? Copiază lista înainte dacă ai nevoie de ea.')){st.results=[];save();renderList();}};
 }
 
 // ---------- people ----------
 function renderPeople(){
   const box=$('#people');
-  box.innerHTML=`<div class="card mut">Each person gets the digits shown in the grey box. The student fills exactly those circles in the code.</div>
-  <div class="card">${st.people.map((p,i)=>`<div class="prow"><b>${i+1}</b><span class="mut">⚪ ${codeOf(i+1)}</span><input data-n="${i}" value="${esc(p.name)}" placeholder="Name"><input data-g="${i}" list="groups" value="${esc(p.group)}" placeholder="Group"></div>`).join('')}
+  box.innerHTML=`<div class="card mut">Fiecare persoană are cifrele din căsuța gri. Elevul completează exact acele cerculețe la cod.</div>
+  <div class="card">${st.people.map((p,i)=>`<div class="prow"><b>${i+1}</b><span class="mut">⚪ ${codeOf(i+1)}</span><input data-n="${i}" value="${esc(p.name)}" placeholder="Nume"><input data-g="${i}" list="groups" value="${esc(p.group)}" placeholder="Grupa"></div>`).join('')}
   <datalist id="groups">${GROUPS.map(g=>`<option value="${g}">`).join('')}</datalist></div>
-  <details class="card"><summary>Paste a list (one person per line: Name ; group)</summary>
+  <details class="card"><summary>Lipește o listă (o persoană pe linie: Nume ; grupa)</summary>
     <textarea id="bulk" rows="6" placeholder="Ana Pop ; 10-11&#10;Ion Radu ; 18-35"></textarea>
-    <button class="btn sm" id="bulkgo">Fill from #1</button></details>`;
+    <button class="btn sm" id="bulkgo">Completează de la #1</button></details>`;
   box.querySelectorAll('[data-n]').forEach(i=>i.oninput=()=>{st.people[+i.dataset.n].name=i.value;save();});
   box.querySelectorAll('[data-g]').forEach(i=>i.oninput=()=>{st.people[+i.dataset.g].group=i.value;save();});
   $('#bulkgo').onclick=()=>{
     const lines=$('#bulk').value.split('\n').map(l=>l.trim()).filter(Boolean).slice(0,31);
     if(!lines.length)return;
-    if(!confirm('Replace persons #1 to #'+lines.length+' with this list?'))return;
+    if(!confirm('Înlocuiești persoanele #1–#'+lines.length+' cu această listă?'))return;
     lines.forEach((l,i)=>{const [n,g]=l.split(';').map(x=>x.trim());st.people[i]={name:n||'',group:g||''};});
     save();renderPeople();
   };
@@ -406,14 +438,14 @@ const KEYOPTS=r=>r<5?['A','F']:['a','b','c'];
 function renderKey(){
   const box=$('#key'),s=st.settings;
   box.innerHTML=`<div class="card">
-    <label class="btn">📷 Scan a filled sheet as the key<input type="file" accept="image/*" capture="environment" id="f-key"></label>
-    <div class="mut">Fill one sheet with the correct answers (the code doesn't matter) and scan it. Or tap the cells below to set them by hand.</div></div>
+    <label class="btn">📷 Scanează o foaie completată ca barem<input type="file" accept="image/*" capture="environment" id="f-key"></label>
+    <div class="mut">Completează o foaie cu răspunsurile corecte (codul nu contează) și scaneaz-o. Sau atinge căsuțele de mai jos ca să le setezi manual.</div></div>
   <div class="card"><div class="grid3" style="margin-bottom:6px">${s.chapters.map(c=>`<b>Cap. ${esc(c)}</b>`).join('')}</div>
     <div class="grid3">${Array.from({length:10},(_,r)=>[0,1,2].map(c=>`<button class="kc" data-c="${c}" data-r="${r}">${r+1}. ${st.key[c][r]||'–'}</button>`).join('')).join('')}</div></div>`;
   $('#f-key').onchange=e=>onFile(e,'key');
   box.querySelectorAll('.kc').forEach(b=>b.onclick=()=>{
     const c=+b.dataset.c,r=+b.dataset.r,o=KEYOPTS(r),i=o.indexOf(st.key[c][r]);
-    st.key[c][r]=i+1>=o.length?null:o[i+1];if(i<0)st.key[c][r]=o[0];
+    st.key[c][r]=i+1>=o.length?null:o[i+1];
     b.textContent=`${r+1}. ${st.key[c][r]||'–'}`;save();
   });
 }
@@ -421,28 +453,30 @@ function applyKey(out){
   const r=interpret(out.raw,st.settings.thr);let bad=0;
   r.ans.forEach((col,c)=>col.forEach((a,q)=>{const g=label(c,q,a);if(!g)bad++;st.key[c][q]=g;}));
   save();show('key');
-  toast(bad?`Key loaded, but ${bad} answer(s) were blank or double — fix them by tapping.`:'Key loaded from the scan. Check it below.',6000);
+  toast(bad?`Barem încărcat, dar ${bad} răspuns(uri) erau goale sau duble — corectează-le atingând.`:'Barem încărcat din scanare. Verifică-l mai jos.',6000);
 }
 
 // ---------- settings ----------
 function renderSet(){
   const s=st.settings,box=$('#set');
-  box.innerHTML=`<div class="card"><label class="mut">Test title</label><input id="s-title" value="${esc(s.title)}">
-    <label class="mut">Chapter labels</label><div class="row">${s.chapters.map((c,i)=>`<input data-ch="${i}" value="${esc(c)}">`).join('')}</div>
-    <label class="mut">Points per question</label><input id="s-pts" type="number" min="1" value="${s.pts}">
-    <label class="mut">Fill sensitivity: <b id="thv">${s.thr}</b> (lower = accepts lighter marks, higher = stricter)</label>
+  box.innerHTML=`<div class="card"><label class="mut">Titlul testului</label><input id="s-title" value="${esc(s.title)}">
+    <label class="mut">Etichete capitole</label><div class="row">${s.chapters.map((c,i)=>`<input data-ch="${i}" value="${esc(c)}">`).join('')}</div>
+    <label class="mut">Puncte pe întrebare</label><input id="s-pts" type="number" min="1" value="${s.pts}">
+    <label class="mut">Puncte din oficiu (scorul merge de la ${s.base} la ${s.base+30*s.pts})</label><input id="s-base" type="number" min="0" value="${s.base}">
+    <label class="mut">Sensibilitate la completare: <b id="thv">${s.thr}</b> (mai mic = acceptă marcaje mai ușoare, mai mare = mai strict)</label>
     <input id="s-thr" type="range" min="0.3" max="0.85" step="0.05" value="${s.thr}"></div>
-  <div class="card"><b>Backup</b>
-    <button class="btn sec" id="bk">Copy backup</button>
-    <textarea id="rs" rows="3" placeholder="Paste a backup here to restore"></textarea>
-    <button class="btn sec" id="rsgo">Restore from pasted backup</button>
-    <div class="mut">Data lives only in this browser on this phone. If you installed the app to the Home Screen, use that icon every time (it has its own storage). Copy a backup now and then.</div></div>`;
+  <div class="card"><b>Copie de siguranță</b>
+    <button class="btn sec" id="bk">Copiază backup</button>
+    <textarea id="rs" rows="3" placeholder="Lipește aici un backup ca să restaurezi"></textarea>
+    <button class="btn sec" id="rsgo">Restaurează din backup-ul lipit</button>
+    <div class="mut">Datele sunt păstrate doar în acest browser, pe acest telefon. Dacă ai instalat aplicația pe ecranul principal, deschide-o mereu din acea pictogramă (are spațiul ei de stocare). Copiază un backup din când în când.</div></div>`;
   $('#s-title').oninput=e=>{s.title=e.target.value;save();};
   box.querySelectorAll('[data-ch]').forEach(i=>i.oninput=()=>{s.chapters[+i.dataset.ch]=i.value;save();});
   $('#s-pts').oninput=e=>{s.pts=Math.max(1,+e.target.value||3);save();};
+  $('#s-base').onchange=e=>{s.base=Math.max(0,+e.target.value||0);save();renderSet();};
   $('#s-thr').oninput=e=>{s.thr=+e.target.value;$('#thv').textContent=s.thr;save();};
   $('#bk').onclick=()=>copyText(JSON.stringify(st));
-  $('#rsgo').onclick=()=>{try{const j=JSON.parse($('#rs').value);if(!j.settings||!j.people)throw 0;if(!confirm('Replace everything on this phone with the backup?'))return;st=Object.assign(DEF(),j);save();renderSet();toast('Restored.');}catch(e){toast('That is not a valid backup.');}};
+  $('#rsgo').onclick=()=>{try{const j=JSON.parse($('#rs').value);if(!j.settings||!j.people)throw 0;if(!confirm('Înlocuiești tot ce e pe acest telefon cu backup-ul?'))return;localStorage.setItem('tf_v1',JSON.stringify(j));st=load();save();renderSet();toast('Restaurat.');}catch(e){toast('Acesta nu este un backup valid.');}};
 }
 show('scan');
 </script>
