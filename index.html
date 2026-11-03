@@ -1,182 +1,450 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sign In</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Test Fulger">
+<meta name="theme-color" content="#2563eb">
+<title>Test Fulger</title>
 <style>
-  :root {
-    --bg: #f5f5f7;
-    --card: #ffffff;
-    --text: #1d1d1f;
-    --muted: #6e6e73;
-    --accent: #0071e3;
-    --accent-hover: #0077ed;
-    --border: #d2d2d7;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: var(--text);
-    padding: 24px;
-  }
-  .card {
-    background: var(--card);
-    border-radius: 16px;
-    padding: 40px 32px;
-    width: 100%;
-    max-width: 420px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-  }
-  h1 {
-    font-size: 22px;
-    margin: 0 0 6px;
-  }
-  p.sub {
-    color: var(--muted);
-    margin: 0 0 28px;
-    font-size: 14px;
-  }
-  label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 6px;
-    margin-top: 18px;
-  }
-  label:first-of-type { margin-top: 0; }
-  input {
-    width: 100%;
-    padding: 11px 12px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    font-size: 15px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  input:focus { border-color: var(--accent); }
-  button {
-    width: 100%;
-    margin-top: 26px;
-    padding: 12px;
-    border: none;
-    border-radius: 10px;
-    background: var(--accent);
-    color: white;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  button:hover { background: var(--accent-hover); }
-  button:disabled { background: #a1c9f1; cursor: not-allowed; }
-  #status {
-    margin-top: 16px;
-    font-size: 14px;
-    text-align: center;
-    min-height: 20px;
-  }
-  #status.ok { color: #1a7f37; }
-  #status.err { color: #d1242f; }
+:root{--bg:#f4f5f7;--card:#fff;--ink:#14171f;--mut:#6b7280;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;--line:#e5e7eb}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1117;--card:#181c25;--ink:#e8eaf0;--mut:#9aa3b2;--line:#2a2f3a}}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.4 -apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:calc(12px + env(safe-area-inset-top)) 12px calc(80px + env(safe-area-inset-bottom))}
+h2{margin:4px 0 10px;font-size:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.view{display:none}.view.on{display:block}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:none;color:var(--mut);padding:10px 0;font-size:11px}
+nav button b{display:block;font-size:20px;font-weight:400}
+nav button.on{color:var(--pri)}
+.btn{display:block;width:100%;border:0;border-radius:12px;background:var(--pri);color:#fff;font-size:17px;font-weight:600;padding:14px;text-align:center;margin:8px 0}
+.btn.sec{background:var(--card);color:var(--pri);border:1px solid var(--pri)}
+.btn.bad{background:var(--bad)}
+.btn.sm{display:inline-block;width:auto;font-size:14px;padding:8px 12px;margin:4px 4px 4px 0}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;width:100%}
+.mut{color:var(--mut);font-size:13px}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+.big{font-size:34px;font-weight:700}
+canvas{width:100%;border-radius:8px;border:1px solid var(--line)}
+.row{display:flex;gap:8px;align-items:center}
+.prow{display:grid;grid-template-columns:28px 54px 1fr 80px;gap:6px;align-items:center;margin-bottom:6px}
+.prow input{padding:6px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:13px}
+.kc{border:1px solid var(--line);border-radius:8px;padding:10px 0;text-align:center;background:var(--bg);font-size:17px;font-weight:600;color:var(--ink)}
+.item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border:0}
+#toast{position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));background:#111;color:#fff;padding:12px;border-radius:10px;display:none;z-index:9;font-size:14px}
+#busy{position:fixed;inset:0;background:rgba(0,0,0,.45);color:#fff;display:none;align-items:center;justify-content:center;font-size:18px;z-index:8}
+input[type=file]{display:none}
 </style>
 </head>
 <body>
+<div id="toast"></div><div id="busy">Reading the sheet…</div>
 
-<div class="card">
-  <h1>Pace!</h1>
-  <p class="sub">Completați datele de mai jos.</p>
-  <form id="entryForm"></form>
-  <div id="status"></div>
-</div>
+<section id="v-scan" class="view on">
+  <h2>Scan</h2>
+  <div class="card">
+    <label class="btn">📷 Scan a test<input type="file" accept="image/*" capture="environment" id="f-test"></label>
+    <label class="btn sec">Choose a photo from the library<input type="file" accept="image/*" id="f-test2"></label>
+    <div class="mut">Keep the page upright (code at the top right), all 4 black corner squares in the frame, good light, phone straight above the page.</div>
+  </div>
+  <div id="result"></div>
+</section>
 
-<!-- Firebase SDK -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import {
-    getFirestore, collection, addDoc, serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+<section id="v-list" class="view"><h2>Results</h2><div id="list"></div></section>
+<section id="v-people" class="view"><h2>People</h2><div id="people"></div></section>
+<section id="v-key" class="view"><h2>Answer key</h2><div id="key"></div></section>
+<section id="v-set" class="view"><h2>Settings</h2><div id="set"></div></section>
 
-  // ====== 1. PASTE YOUR FIREBASE CONFIG HERE ======
-  const firebaseConfig = {
-    apiKey: "AIzaSyA5raN56WOXCtL0S8cD0-U1JZmF4o_NX_0",
-    authDomain: "ishere-6685f.firebaseapp.com",
-    projectId: "ishere-6685f",
-    storageBucket: "ishere-6685f.firebasestorage.app",
-    messagingSenderId: "482485139761",
-    appId: "1:482485139761:web:3c6f7f275c1550fd669810",
-    measurementId: "G-RX8V187TQB"
-  };
-  // =================================================
+<nav>
+  <button data-v="scan" class="on"><b>📷</b>Scan</button>
+  <button data-v="list"><b>📋</b>Results</button>
+  <button data-v="people"><b>👥</b>People</button>
+  <button data-v="key"><b>✅</b>Key</button>
+  <button data-v="set"><b>⚙️</b>Settings</button>
+</nav>
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+<!-- ================= CORE (pure logic, no DOM) ================= -->
+<script id="core">
+// ---- Sheet geometry, in pixels of the reference template image (512 x 687) ----
+// Adjust these numbers if the green/red dots in the check image are not centered on the circles.
+const REF_W=512, REF_H=687, S=2, R_IN=6.5, DARK_RATIO=0.66, MAXSIDE=1800;
+const MARKERS=[[18,18],[491,18],[18,665],[491,665]];          // centers of the 4 black squares: TL, TR, BL, BR
+const CODE_X=[315,348,381,415,449], CODE_Y=101;                // the 5 code circles
+const TF_Y=[242,287,331,375,419], ABC_Y=[464,508,552,596,637]; // row centers: questions 1-5, 6-10
+const COLS=[                                                    // 3 chapters, x centers of the circles
+  {tf:[69,108],  abc:[68,102,136],  abc10:[70,107,140]},
+  {tf:[236,272], abc:[232,267,301], abc10:[235,268,303]},
+  {tf:[395,433], abc:[394,427,461], abc10:[396,431,463]},
+];
 
-  // ====== 2. EDIT THIS LIST TO ADD/REMOVE FIELDS ======
-  // type can be: text, email, tel, number
-  const FIELDS = [
-    { name: "name", label: "Name", type: "text", required: true },
-    // { name: "email", label: "Email", type: "email", required: false },
-    // { name: "phone", label: "Phone", type: "tel", required: false },
-  ];
-  // ======================================================
-
-  const form = document.getElementById("entryForm");
-  const statusEl = document.getElementById("status");
-
-  // Build the form fields dynamically from FIELDS
-  FIELDS.forEach(field => {
-    const label = document.createElement("label");
-    label.textContent = field.label + (field.required ? " *" : "");
-    label.htmlFor = field.name;
-
-    const input = document.createElement("input");
-    input.type = field.type;
-    input.id = field.name;
-    input.name = field.name;
-    if (field.required) input.required = true;
-
-    form.appendChild(label);
-    form.appendChild(input);
+function layout(){
+  const code=CODE_X.map((x,i)=>({x,y:CODE_Y,label:String(i+1)}));
+  const q=COLS.map(c=>{
+    const rows=[];
+    for(let r=0;r<5;r++) rows.push(c.tf.map((x,i)=>({x,y:TF_Y[r],label:['A','F'][i]})));
+    for(let r=0;r<5;r++){const xs=r===4?c.abc10:c.abc; rows.push(xs.map((x,i)=>({x,y:ABC_Y[r],label:['a','b','c'][i]})));}
+    return rows;
   });
+  return {code,q};
+}
 
-  const button = document.createElement("button");
-  button.type = "submit";
-  button.textContent = "Trimite";
-  form.appendChild(button);
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    statusEl.textContent = "";
-    statusEl.className = "";
-    button.disabled = true;
-    button.textContent = "Se trimite...";
-
-    const entry = {};
-    FIELDS.forEach(field => {
-      entry[field.name] = document.getElementById(field.name).value.trim();
-    });
-    entry.createdAt = serverTimestamp();
-
-    try {
-      await addDoc(collection(db, "entries"), entry);
-      statusEl.textContent = "Thanks! You're on the list.";
-      statusEl.className = "ok";
-      form.reset();
-    } catch (err) {
-      console.error(err);
-      statusEl.textContent = "Something went wrong. Please try again.";
-      statusEl.className = "err";
-    } finally {
-      button.disabled = false;
-      button.textContent = "Trimite";
+function findMarkers(g,w,h){
+  const dim=Math.max(w,h), win=(Math.round(dim/18)|1), half=win>>1, W1=w+1;
+  const I=new Int32Array(W1*(h+1));
+  for(let y=0;y<h;y++){let row=0;for(let x=0;x<w;x++){row+=g[y*w+x];I[(y+1)*W1+x+1]=I[y*W1+x+1]+row;}}
+  const mask=new Uint8Array(w*h);
+  for(let y=0;y<h;y++){
+    const y0=Math.max(0,y-half),y1=Math.min(h,y+half+1);
+    for(let x=0;x<w;x++){
+      const x0=Math.max(0,x-half),x1=Math.min(w,x+half+1);
+      const sum=I[y1*W1+x1]-I[y0*W1+x1]-I[y1*W1+x0]+I[y0*W1+x0];
+      const mean=sum/((y1-y0)*(x1-x0)), v=g[y*w+x];
+      if(v<mean*0.62&&v<110)mask[y*w+x]=1;
     }
+  }
+  const stack=new Int32Array(w*h),cands=[],minS=dim*0.008,maxS=dim*0.09;
+  for(let i=0;i<w*h;i++){
+    if(mask[i]!==1)continue;
+    let sp=0;stack[sp++]=i;mask[i]=2;
+    let minx=w,maxx=0,miny=h,maxy=0,area=0,sx=0,sy=0;
+    while(sp){
+      const p=stack[--sp],x=p%w,y=(p/w)|0;
+      area++;sx+=x;sy+=y;
+      if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;
+      if(x>0&&mask[p-1]===1){mask[p-1]=2;stack[sp++]=p-1;}
+      if(x<w-1&&mask[p+1]===1){mask[p+1]=2;stack[sp++]=p+1;}
+      if(y>0&&mask[p-w]===1){mask[p-w]=2;stack[sp++]=p-w;}
+      if(y<h-1&&mask[p+w]===1){mask[p+w]=2;stack[sp++]=p+w;}
+    }
+    const bw=maxx-minx+1,bh=maxy-miny+1;
+    if(bw<minS||bh<minS||bw>maxS||bh>maxS)continue;
+    const ar=bw/bh;if(ar<0.7||ar>1.43)continue;
+    if(area/(bw*bh)<0.6)continue;
+    cands.push({x:sx/area,y:sy/area,s:Math.sqrt(area)});
+  }
+  if(cands.length<4)return {err:'Could not find the 4 black corner squares. Get all four in the frame, with good light.'};
+  const pick=f=>cands.reduce((a,b)=>f(b)>f(a)?b:a);
+  const TL=pick(c=>-(c.x+c.y)),TR=pick(c=>c.x-c.y),BL=pick(c=>c.y-c.x),BR=pick(c=>c.x+c.y);
+  const four=[TL,TR,BL,BR];
+  if(new Set(four).size<4)return {err:'Could not tell the 4 corner squares apart. Retake with the whole page in frame.'};
+  const sizes=four.map(c=>c.s).sort((a,b)=>a-b),med=(sizes[1]+sizes[2])/2;
+  if(four.some(c=>c.s<med*0.55||c.s>med*1.8))return {err:'The corner squares look inconsistent (something else dark in the picture?). Retake on a plain background.'};
+  const d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const aspect=(d(TL,TR)+d(BL,BR))/(d(TL,BL)+d(TR,BR));
+  if(aspect<0.55||aspect>0.95)return {err:'The page looks rotated or too tilted. Hold the phone in portrait with the page upright.'};
+  return {pts:four.map(c=>[c.x,c.y])};
+}
+
+function solveH(src,dst){ // homography mapping src[i] -> dst[i]
+  const M=[];
+  for(let i=0;i<4;i++){
+    const [x,y]=src[i],[u,v]=dst[i];
+    M.push([x,y,1,0,0,0,-x*u,-y*u,u]);
+    M.push([0,0,0,x,y,1,-x*v,-y*v,v]);
+  }
+  for(let c=0;c<8;c++){
+    let p=c;for(let r=c+1;r<8;r++)if(Math.abs(M[r][c])>Math.abs(M[p][c]))p=r;
+    [M[c],M[p]]=[M[p],M[c]];
+    for(let r=0;r<8;r++){
+      if(r===c)continue;
+      const f=M[r][c]/M[c][c];
+      for(let k=c;k<9;k++)M[r][k]-=f*M[c][k];
+    }
+  }
+  return M.map((r,i)=>r[8]/r[i]);
+}
+
+function warp(g,w,h,H){
+  const TW=REF_W*S,TH=REF_H*S,out=new Uint8ClampedArray(TW*TH);
+  for(let ty=0;ty<TH;ty++){
+    const ry=ty/S;
+    for(let tx=0;tx<TW;tx++){
+      const rx=tx/S,den=H[6]*rx+H[7]*ry+1;
+      const sx=(H[0]*rx+H[1]*ry+H[2])/den,sy=(H[3]*rx+H[4]*ry+H[5])/den;
+      const x0=Math.floor(sx),y0=Math.floor(sy);
+      let v=255;
+      if(x0>=0&&y0>=0&&x0<w-1&&y0<h-1){
+        const fx=sx-x0,fy=sy-y0,i=y0*w+x0;
+        v=g[i]*(1-fx)*(1-fy)+g[i+1]*fx*(1-fy)+g[i+w]*(1-fx)*fy+g[i+w+1]*fx*fy;
+      }
+      out[ty*TW+tx]=v;
+    }
+  }
+  return {g:out,w:TW,h:TH};
+}
+
+function bgGrid(wp){ // local "paper brightness" estimate (90th percentile per block) to cope with shadows
+  const B=80,gx=Math.ceil(wp.w/B),gy=Math.ceil(wp.h/B),bg=new Float32Array(gx*gy);
+  for(let by=0;by<gy;by++)for(let bx=0;bx<gx;bx++){
+    const hist=new Uint32Array(256);let n=0;
+    for(let y=by*B;y<Math.min(wp.h,(by+1)*B);y++)for(let x=bx*B;x<Math.min(wp.w,(bx+1)*B);x++){hist[wp.g[y*wp.w+x]|0]++;n++;}
+    let cum=0,v=255;for(let i=0;i<256;i++){cum+=hist[i];if(cum>=n*0.9){v=i;break;}}
+    bg[by*gx+bx]=Math.max(v,40);
+  }
+  return {B,gx,gy,bg};
+}
+function bgAt(G,x,y){
+  const fx=x/G.B-0.5,fy=y/G.B-0.5;
+  const x0=Math.max(0,Math.min(G.gx-1,Math.floor(fx))),y0=Math.max(0,Math.min(G.gy-1,Math.floor(fy)));
+  const x1=Math.min(G.gx-1,x0+1),y1=Math.min(G.gy-1,y0+1);
+  const tx=Math.max(0,Math.min(1,fx-x0)),ty=Math.max(0,Math.min(1,fy-y0));
+  const a=G.bg[y0*G.gx+x0],b=G.bg[y0*G.gx+x1],c=G.bg[y1*G.gx+x0],d=G.bg[y1*G.gx+x1];
+  return (a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty;
+}
+function fillAt(wp,G,cx,cy){ // fraction of dark pixels in a disk, best of 9 small shifts (tolerates small misalignment)
+  let best=0;const r=R_IN*S;
+  for(const oy of [-3,0,3])for(const ox of [-3,0,3]){
+    const px=(cx+ox)*S,py=(cy+oy)*S,th=bgAt(G,px,py)*DARK_RATIO;
+    let n=0,d=0;
+    for(let y=Math.floor(py-r);y<=Math.ceil(py+r);y++)for(let x=Math.floor(px-r);x<=Math.ceil(px+r);x++){
+      if(x<0||y<0||x>=wp.w||y>=wp.h)continue;
+      const dx=x-px,dy=y-py;if(dx*dx+dy*dy>r*r)continue;
+      n++;if(wp.g[y*wp.w+x]<th)d++;
+    }
+    if(n&&d/n>best)best=d/n;
+  }
+  return best;
+}
+function analyze(wp){
+  const G=bgGrid(wp),L=layout();
+  return {
+    code:L.code.map(o=>fillAt(wp,G,o.x,o.y)),
+    q:L.q.map(col=>col.map(opts=>opts.map(o=>fillAt(wp,G,o.x,o.y))))
+  };
+}
+function interpret(raw,thr){
+  const digits=[];raw.code.forEach((f,i)=>{if(f>thr)digits.push(i+1);});
+  let idx=0;digits.forEach(d=>idx+=1<<(d-1));
+  const ans=raw.q.map(col=>col.map(fs=>{
+    const m=[];fs.forEach((f,i)=>{if(f>thr)m.push(i);});
+    return m.length===1?{i:m[0],s:'ok'}:{i:-1,s:m.length?'double':'blank'};
+  }));
+  return {digits,idx,ans};
+}
+function label(c,r,a){return a.s==='ok'?layout().q[c][r][a.i].label:null;}
+function codeOf(idx){let s='';for(let d=1;d<=5;d++)if((idx>>(d-1))&1)s+=d;return s;}
+function scoreOf(ans,key){ // number of correct answers per chapter
+  const L=layout();
+  return ans.map((col,c)=>col.reduce((n,a,r)=>n+(a.s==='ok'&&key[c][r]&&L.q[c][r][a.i].label===key[c][r]?1:0),0));
+}
+</script>
+
+<!-- ================= APP (UI, storage) ================= -->
+<script id="app">
+const GROUPS=['0-1','2-3','6-7','8-9','10-11','18-35','35+'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const DEF=()=>({
+  settings:{title:'1 Samuel 16-18',chapters:['16','17','18'],pts:3,thr:0.55},
+  people:Array.from({length:31},()=>({name:'',group:''})),
+  key:[0,1,2].map(()=>Array(10).fill(null)),
+  results:[]
+});
+let st=load();
+function load(){
+  try{const s=JSON.parse(localStorage.getItem('tf_v1'));if(s&&s.settings&&s.people)return Object.assign(DEF(),s);}catch(e){}
+  return DEF();
+}
+function save(){try{localStorage.setItem('tf_v1',JSON.stringify(st));}catch(e){toast('Could not save to this browser.');}}
+function toast(m,ms=3500){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',ms);}
+const maxTotal=()=>3*10*st.settings.pts;
+const pname=i=>{const p=st.people[i-1];return p&&p.name?p.name:`(person #${i})`;};
+
+// ---------- navigation ----------
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+function show(v){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
+  ({scan:()=>{},list:renderList,people:renderPeople,key:renderKey,set:renderSet})[v]();
+  window.scrollTo(0,0);
+}
+
+// ---------- scanning ----------
+let cur=null,scanMode='test';
+$('#f-test').onchange=e=>onFile(e,'test');$('#f-test2').onchange=e=>onFile(e,'test');
+async function onFile(e,mode){
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  $('#busy').style.display='flex';await new Promise(r=>setTimeout(r,40));
+  try{
+    const out=await scanFile(f);
+    if(out.err){toast(out.err,6000);return;}
+    if(mode==='key'){applyKey(out);}
+    else{cur=out;show('scan');renderResult();}
+  }catch(err){console.error(err);toast('Could not read that photo: '+err.message,6000);}
+  finally{$('#busy').style.display='none';}
+}
+async function scanFile(file){
+  const img=new Image(),url=URL.createObjectURL(file);img.src=url;await img.decode();
+  const sc=Math.min(1,MAXSIDE/Math.max(img.naturalWidth,img.naturalHeight));
+  const w=Math.round(img.naturalWidth*sc),h=Math.round(img.naturalHeight*sc);
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  const ctx=cv.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);URL.revokeObjectURL(url);
+  const d=ctx.getImageData(0,0,w,h).data,g=new Uint8ClampedArray(w*h);
+  for(let i=0;i<w*h;i++)g[i]=(d[4*i]*77+d[4*i+1]*150+d[4*i+2]*29)>>8;
+  const m=findMarkers(g,w,h);if(m.err)return m;
+  const H=solveH(MARKERS,m.pts),wp=warp(g,w,h,H);
+  return {wp,raw:analyze(wp)};
+}
+
+function drawOverlay(canvas,wp,raw,thr){
+  canvas.width=wp.w;canvas.height=wp.h;
+  const ctx=canvas.getContext('2d'),id=ctx.createImageData(wp.w,wp.h);
+  for(let i=0;i<wp.g.length;i++){const v=wp.g[i];id.data[4*i]=id.data[4*i+1]=id.data[4*i+2]=v;id.data[4*i+3]=255;}
+  ctx.putImageData(id,0,0);
+  const L=layout(),rad=R_IN*S;
+  const dot=(o,f)=>{ctx.beginPath();ctx.arc(o.x*S,o.y*S,rad,0,6.2832);
+    if(f>thr){ctx.fillStyle='rgba(22,163,74,.55)';ctx.fill();ctx.strokeStyle='#16a34a';}else ctx.strokeStyle='rgba(220,38,38,.85)';
+    ctx.lineWidth=2;ctx.stroke();};
+  L.code.forEach((o,i)=>dot(o,raw.code[i]));
+  L.q.forEach((col,c)=>col.forEach((opts,r)=>opts.forEach((o,i)=>dot(o,raw.q[c][r][i]))));
+}
+
+function renderResult(){
+  const box=$('#result');if(!cur){box.innerHTML='';return;}
+  const s=st.settings,r=interpret(cur.raw,s.thr);
+  if(cur.sel==null)cur.sel=(r.idx>=1&&r.idx<=31)?r.idx:0;
+  const sc=scoreOf(r.ans,st.key),keyOk=st.key.some(c=>c.some(Boolean));
+  const tot=sc.reduce((a,b)=>a+b,0)*s.pts;
+  let issues=0;r.ans.forEach(c=>c.forEach(a=>{if(a.s!=='ok')issues++;}));
+  const opts=['<option value="0">— choose person —</option>'].concat(st.people.map((p,i)=>`<option value="${i+1}" ${cur.sel===i+1?'selected':''}>#${i+1} · ${esc(p.name||'(no name yet)')}${p.group?' · '+esc(p.group):''}</option>`)).join('');
+  const det=r.ans.map((col,c)=>`<div><b>Cap. ${esc(s.chapters[c])}: ${sc[c]*s.pts}/${10*s.pts}</b>`+col.map((a,q)=>{
+    const g=label(c,q,a),k=st.key[c][q],ok=g&&k&&g===k;
+    return `<div class="${ok?'ok':'bad'}">${q+1}. ${g||(a.s==='double'?'2×':'–')} ${ok?'✓':'✗'}${!ok&&k?' ('+k+')':''}</div>`;}).join('')+'</div>').join('');
+  box.innerHTML=`<div class="card">
+    <div class="mut">Code read: ${r.digits.length?r.digits.join(' · '):'none'} → person #${r.idx||'?'}</div>
+    <select id="sel">${opts}</select>
+    <div class="big" style="margin-top:8px">${tot} / ${maxTotal()}</div>
+    ${keyOk?'':'<div class="bad">No answer key yet — set it in the Key tab.</div>'}
+    ${issues?`<div class="bad">${issues} answer(s) blank or double-marked (count as wrong).</div>`:''}
+    <div class="grid3" style="margin:10px 0">${det}</div>
+    <button class="btn" id="save">Save to list</button>
+    <button class="btn sec" id="disc">Discard</button>
+    <details><summary class="mut">Check the scan (green = read as filled)</summary>
+      <canvas id="ov"></canvas>
+      <div class="mut">If the dots are not centered on the circles, the geometry needs a tweak.</div></details>
+  </div>`;
+  drawOverlay($('#ov'),cur.wp,cur.raw,s.thr);
+  $('#sel').onchange=e=>{cur.sel=+e.target.value;};
+  $('#disc').onclick=()=>{cur=null;renderResult();};
+  $('#save').onclick=()=>{
+    if(!cur.sel){toast('Choose the person first.');return;}
+    const ex=st.results.findIndex(x=>x.idx===cur.sel);
+    if(ex>=0&&!confirm(pname(cur.sel)+' is already in the list. Replace the result?'))return;
+    const entry={idx:cur.sel,scores:sc.map(n=>n*s.pts),total:tot,t:Date.now(),issues};
+    if(ex>=0)st.results[ex]=entry;else st.results.push(entry);
+    save();toast('Saved: '+pname(cur.sel)+' – '+tot+'/'+maxTotal());cur=null;renderResult();
+  };
+}
+
+// ---------- results ----------
+let sortMode='time';
+function sortedResults(){
+  const a=st.results.slice(),gi=g=>{const i=GROUPS.indexOf(g);return i<0?99:i;};
+  if(sortMode==='name')a.sort((x,y)=>pname(x.idx).localeCompare(pname(y.idx)));
+  else if(sortMode==='group')a.sort((x,y)=>gi(st.people[x.idx-1].group)-gi(st.people[y.idx-1].group)||pname(x.idx).localeCompare(pname(y.idx)));
+  else if(sortMode==='score')a.sort((x,y)=>y.total-x.total);
+  else a.sort((x,y)=>x.t-y.t);
+  return a;
+}
+function shareText(){
+  const s=st.settings,lines=[`*${s.title}*`];let lastG=null;
+  for(const e of sortedResults()){
+    const g=st.people[e.idx-1].group||'';
+    if(sortMode==='group'&&g!==lastG){lines.push('','*'+(g||'—')+'*');lastG=g;}
+    lines.push(`${pname(e.idx)}: ${e.total}/${maxTotal()} (${e.scores.join(' / ')})`);
+  }
+  return lines.join('\n');
+}
+async function copyText(t){
+  try{await navigator.clipboard.writeText(t);}
+  catch(e){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();}
+  toast('Copied. Paste it in WhatsApp.');
+}
+function renderList(){
+  const box=$('#list'),res=sortedResults(),done=new Set(st.results.map(r=>r.idx));
+  const missing=st.people.map((p,i)=>({p,i:i+1})).filter(x=>x.p.name&&!done.has(x.i));
+  box.innerHTML=`<div class="card">
+    <select id="sort"><option value="time">Order scanned</option><option value="name">By name</option><option value="group">By group</option><option value="score">By score</option></select>
+    <button class="btn" id="cp">Copy for WhatsApp</button>
+    ${navigator.share?'<button class="btn sec" id="sh">Share…</button>':''}
+  </div>
+  <div class="card">${res.length?res.map(e=>`<div class="item"><div><b>${esc(pname(e.idx))}</b> <span class="mut">${esc(st.people[e.idx-1].group)}</span><div class="mut">${e.scores.join(' / ')}${e.issues?' · '+e.issues+' unclear':''}</div></div><div class="row"><b>${e.total}/${maxTotal()}</b><button class="btn sm bad" data-del="${e.idx}">×</button></div></div>`).join(''):'<div class="mut">No results yet.</div>'}</div>
+  ${missing.length?`<div class="card"><b>Not scanned yet (${missing.length})</b><div class="mut">${missing.map(x=>esc(x.p.name)).join(', ')}</div></div>`:''}
+  ${res.length?'<button class="btn sec" id="clr">Clear all results</button>':''}`;
+  $('#sort').value=sortMode;$('#sort').onchange=e=>{sortMode=e.target.value;renderList();};
+  $('#cp').onclick=()=>copyText(shareText());
+  if($('#sh'))$('#sh').onclick=()=>navigator.share({text:shareText()}).catch(()=>{});
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const i=+b.dataset.del;if(confirm('Delete result of '+pname(i)+'?')){st.results=st.results.filter(x=>x.idx!==i);save();renderList();}});
+  if($('#clr'))$('#clr').onclick=()=>{if(confirm('Delete ALL results? Copy the list first if you need it.')){st.results=[];save();renderList();}};
+}
+
+// ---------- people ----------
+function renderPeople(){
+  const box=$('#people');
+  box.innerHTML=`<div class="card mut">Each person gets the digits shown in the grey box. The student fills exactly those circles in the code.</div>
+  <div class="card">${st.people.map((p,i)=>`<div class="prow"><b>${i+1}</b><span class="mut">⚪ ${codeOf(i+1)}</span><input data-n="${i}" value="${esc(p.name)}" placeholder="Name"><input data-g="${i}" list="groups" value="${esc(p.group)}" placeholder="Group"></div>`).join('')}
+  <datalist id="groups">${GROUPS.map(g=>`<option value="${g}">`).join('')}</datalist></div>
+  <details class="card"><summary>Paste a list (one person per line: Name ; group)</summary>
+    <textarea id="bulk" rows="6" placeholder="Ana Pop ; 10-11&#10;Ion Radu ; 18-35"></textarea>
+    <button class="btn sm" id="bulkgo">Fill from #1</button></details>`;
+  box.querySelectorAll('[data-n]').forEach(i=>i.oninput=()=>{st.people[+i.dataset.n].name=i.value;save();});
+  box.querySelectorAll('[data-g]').forEach(i=>i.oninput=()=>{st.people[+i.dataset.g].group=i.value;save();});
+  $('#bulkgo').onclick=()=>{
+    const lines=$('#bulk').value.split('\n').map(l=>l.trim()).filter(Boolean).slice(0,31);
+    if(!lines.length)return;
+    if(!confirm('Replace persons #1 to #'+lines.length+' with this list?'))return;
+    lines.forEach((l,i)=>{const [n,g]=l.split(';').map(x=>x.trim());st.people[i]={name:n||'',group:g||''};});
+    save();renderPeople();
+  };
+}
+
+// ---------- answer key ----------
+const KEYOPTS=r=>r<5?['A','F']:['a','b','c'];
+function renderKey(){
+  const box=$('#key'),s=st.settings;
+  box.innerHTML=`<div class="card">
+    <label class="btn">📷 Scan a filled sheet as the key<input type="file" accept="image/*" capture="environment" id="f-key"></label>
+    <div class="mut">Fill one sheet with the correct answers (the code doesn't matter) and scan it. Or tap the cells below to set them by hand.</div></div>
+  <div class="card"><div class="grid3" style="margin-bottom:6px">${s.chapters.map(c=>`<b>Cap. ${esc(c)}</b>`).join('')}</div>
+    <div class="grid3">${Array.from({length:10},(_,r)=>[0,1,2].map(c=>`<button class="kc" data-c="${c}" data-r="${r}">${r+1}. ${st.key[c][r]||'–'}</button>`).join('')).join('')}</div></div>`;
+  $('#f-key').onchange=e=>onFile(e,'key');
+  box.querySelectorAll('.kc').forEach(b=>b.onclick=()=>{
+    const c=+b.dataset.c,r=+b.dataset.r,o=KEYOPTS(r),i=o.indexOf(st.key[c][r]);
+    st.key[c][r]=i+1>=o.length?null:o[i+1];if(i<0)st.key[c][r]=o[0];
+    b.textContent=`${r+1}. ${st.key[c][r]||'–'}`;save();
   });
+}
+function applyKey(out){
+  const r=interpret(out.raw,st.settings.thr);let bad=0;
+  r.ans.forEach((col,c)=>col.forEach((a,q)=>{const g=label(c,q,a);if(!g)bad++;st.key[c][q]=g;}));
+  save();show('key');
+  toast(bad?`Key loaded, but ${bad} answer(s) were blank or double — fix them by tapping.`:'Key loaded from the scan. Check it below.',6000);
+}
+
+// ---------- settings ----------
+function renderSet(){
+  const s=st.settings,box=$('#set');
+  box.innerHTML=`<div class="card"><label class="mut">Test title</label><input id="s-title" value="${esc(s.title)}">
+    <label class="mut">Chapter labels</label><div class="row">${s.chapters.map((c,i)=>`<input data-ch="${i}" value="${esc(c)}">`).join('')}</div>
+    <label class="mut">Points per question</label><input id="s-pts" type="number" min="1" value="${s.pts}">
+    <label class="mut">Fill sensitivity: <b id="thv">${s.thr}</b> (lower = accepts lighter marks, higher = stricter)</label>
+    <input id="s-thr" type="range" min="0.3" max="0.85" step="0.05" value="${s.thr}"></div>
+  <div class="card"><b>Backup</b>
+    <button class="btn sec" id="bk">Copy backup</button>
+    <textarea id="rs" rows="3" placeholder="Paste a backup here to restore"></textarea>
+    <button class="btn sec" id="rsgo">Restore from pasted backup</button>
+    <div class="mut">Data lives only in this browser on this phone. If you installed the app to the Home Screen, use that icon every time (it has its own storage). Copy a backup now and then.</div></div>`;
+  $('#s-title').oninput=e=>{s.title=e.target.value;save();};
+  box.querySelectorAll('[data-ch]').forEach(i=>i.oninput=()=>{s.chapters[+i.dataset.ch]=i.value;save();});
+  $('#s-pts').oninput=e=>{s.pts=Math.max(1,+e.target.value||3);save();};
+  $('#s-thr').oninput=e=>{s.thr=+e.target.value;$('#thv').textContent=s.thr;save();};
+  $('#bk').onclick=()=>copyText(JSON.stringify(st));
+  $('#rsgo').onclick=()=>{try{const j=JSON.parse($('#rs').value);if(!j.settings||!j.people)throw 0;if(!confirm('Replace everything on this phone with the backup?'))return;st=Object.assign(DEF(),j);save();renderSet();toast('Restored.');}catch(e){toast('That is not a valid backup.');}};
+}
+show('scan');
 </script>
 </body>
 </html>
