@@ -435,14 +435,38 @@ function renderPeople(){
 
 // ---------- answer key ----------
 const KEYOPTS=r=>r<5?['A','F']:['a','b','c'];
+const keyAsLines=()=>st.key.some(c=>c.some(Boolean))?st.key.map(c=>c.map((v,r)=>(v||'?')+(r===4?' ':'')).join('')).join('\n'):'';
 function renderKey(){
   const box=$('#key'),s=st.settings;
   box.innerHTML=`<div class="card">
     <label class="btn">📷 Scanează o foaie completată ca barem<input type="file" accept="image/*" capture="environment" id="f-key"></label>
-    <div class="mut">Completează o foaie cu răspunsurile corecte (codul nu contează) și scaneaz-o. Sau atinge căsuțele de mai jos ca să le setezi manual.</div></div>
+    <label class="btn sec">🖼️ Alege o poză din galerie<input type="file" accept="image/*" id="f-key2"></label>
+    <div class="mut">Completează o foaie cu răspunsurile corecte (codul nu contează) și scaneaz-o sau alege poza ei din galerie. Poți și să scrii o listă sau să atingi căsuțele de mai jos.</div></div>
+  <div class="card"><b>Din listă</b>
+    <div class="mut">Un capitol pe linie, 10 răspunsuri: primele 5 A/F, ultimele 5 a/b/c. Spațiile și virgulele sunt ignorate.</div>
+    <textarea id="klist" rows="3" placeholder="AFAFA abcab&#10;FFAAF cabca&#10;AFFAF bbaac">${keyAsLines()}</textarea>
+    <button class="btn sm" id="klistgo">Aplică lista</button></div>
   <div class="card"><div class="grid3" style="margin-bottom:6px">${s.chapters.map(c=>`<b>Cap. ${esc(c)}</b>`).join('')}</div>
     <div class="grid3">${Array.from({length:10},(_,r)=>[0,1,2].map(c=>`<button class="kc" data-c="${c}" data-r="${r}">${r+1}. ${st.key[c][r]||'–'}</button>`).join('')).join('')}</div></div>`;
-  $('#f-key').onchange=e=>onFile(e,'key');
+  $('#f-key').onchange=e=>onFile(e,'key');$('#f-key2').onchange=e=>onFile(e,'key');
+  $('#klistgo').onclick=()=>{
+    const lines=$('#klist').value.split('\n').map(l=>l.trim()).filter(Boolean);
+    if(!lines.length){toast('Lista este goală.');return;}
+    const parsed=[];
+    for(let c=0;c<Math.min(3,lines.length);c++){
+      const ch=lines[c].replace(/[^A-Za-z]/g,'');
+      if(ch.length!==10){toast(`Linia ${c+1}: trebuie să aibă exact 10 răspunsuri (are ${ch.length}).`,6000);return;}
+      const row=[];
+      for(let r=0;r<10;r++){
+        const v=ch[r],ok=KEYOPTS(r).find(o=>o.toLowerCase()===v.toLowerCase());
+        if(!ok){toast(`Linia ${c+1}, întrebarea ${r+1}: „${v}” nu e valid (${KEYOPTS(r).join('/')}).`,6000);return;}
+        row.push(ok);
+      }
+      parsed.push(row);
+    }
+    parsed.forEach((row,c)=>{st.key[c]=row;});
+    save();renderKey();toast('Barem încărcat din listă.');
+  };
   box.querySelectorAll('.kc').forEach(b=>b.onclick=()=>{
     const c=+b.dataset.c,r=+b.dataset.r,o=KEYOPTS(r),i=o.indexOf(st.key[c][r]);
     st.key[c][r]=i+1>=o.length?null:o[i+1];
