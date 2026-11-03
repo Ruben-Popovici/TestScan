@@ -422,7 +422,7 @@ function shareText(){
   for(const e of sortedResults()){
     const g=st.people[e.idx-1].group||'';
     if(sortMode==='group'&&g!==lastG){lines.push('','*'+(g||'—')+'*');lastG=g;}
-    lines.push(`${pname(e.idx)}: ${e.total}/${maxTotal()} (${e.scores.join(' / ')})`);
+    lines.push(`${pname(e.idx)}: ${e.total}/${maxTotal()}`);
   }
   return lines.join('\n');
 }
