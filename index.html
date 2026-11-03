@@ -61,6 +61,7 @@ input[type=file]{display:none}
 <section id="v-scan" class="view on">
   <h2>Scanare</h2>
   <div class="card">
+    <button class="mut" id="actinfo" style="background:none;border:0;padding:0 0 6px;text-align:left;font:inherit;font-size:13px;color:var(--mut)"></button>
     <label class="btn">📷 Scanează un test<input type="file" accept="image/*" capture="environment" id="f-test"></label>
     <label class="btn sec">Alege o poză din galerie<input type="file" accept="image/*" id="f-test2"></label>
     <button class="btn sec" id="manual">✍️ Introdu manual (dacă scanarea nu merge)</button>
@@ -250,9 +251,11 @@ const DEF=()=>({
   settings:{title:'1 Samuel 16-18',chapters:['16','17','18'],pts:3,base:10,thr:0.55},
   people:Array.from({length:31},()=>({name:'',group:''})),
   key:[0,1,2].map(()=>Array(10).fill(null)),
-  results:[],
-  history:[]   // finished tests: {name,date,max,results:[...]}
+  tests:[],     // every test: {id,title,chapters,date,max,key,results:[...]}; a test is identified by title + chapters
+  active:null   // id of the test that new scans are added to (null = a new test that has no results yet)
 });
+const emptyKey=()=>[0,1,2].map(()=>Array(10).fill(null));
+const clone=o=>JSON.parse(JSON.stringify(o));
 let st=load();
 function load(){
   let s=null;try{s=JSON.parse(localStorage.getItem('tf_v1'));}catch(e){}
@@ -261,8 +264,18 @@ function load(){
   const out=Object.assign(d,s);
   out.settings=Object.assign(DEF().settings,s.settings);
   while(out.people.length<31)out.people.push({name:'',group:''});
-  if(!Array.isArray(out.history))out.history=[];
+  out.results=out.results||[];
   out.results.forEach(e=>{if(!e.v){e.total+=out.settings.base;e.v=2;}}); // older saves had no base points
+  if(!Array.isArray(s.tests)){ // migrate older saves (separate "current results" + "history")
+    out.tests=[];out.active=null;
+    (out.history||[]).forEach((x,k)=>out.tests.push({id:'h'+k,title:x.name,chapters:out.settings.chapters.slice(),date:x.date,max:x.max||100,key:emptyKey(),results:x.results||[]}));
+    if(out.results.length){
+      out.tests.push({id:'cur',title:out.settings.title,chapters:out.settings.chapters.slice(),date:Math.min(...out.results.map(e=>e.t||Date.now())),max:out.settings.base+30*out.settings.pts,key:JSON.parse(JSON.stringify(out.key)),results:out.results});
+      out.active='cur';
+    }
+  }
+  delete out.results;delete out.history;
+  if(out.active==null)out.active=null;
   return out;
 }
 function save(){try{localStorage.setItem('tf_v1',JSON.stringify(st));}catch(e){toast('Nu s-a putut salva în acest browser.');}}
@@ -275,14 +288,49 @@ const scoreColor=(t,mx)=>{
   const [p,q,u]=f<0.5?[A,M,f*2]:[M,G,(f-0.5)*2];
   return `rgb(${p.map((v,i)=>(v+(q[i]-v)*u).toFixed(1)).join(',')})`;
 };
+const activeTest=()=>st.tests.find(t=>t.id===st.active)||null;
+const R=()=>{const t=activeTest();return t?t.results:[];};
+const sameCh=(a,b)=>a.length===b.length&&a.every((x,i)=>x===b[i]);
+const findTest=()=>st.tests.find(t=>t.title===st.settings.title&&sameCh(t.chapters,st.settings.chapters))||null;
+function ensureTest(){ // the test that gets the next saved result; created on first save
+  let t=activeTest()||findTest();
+  if(!t){t={id:'t'+Date.now().toString(36),title:st.settings.title,chapters:st.settings.chapters.slice(),date:Date.now(),max:maxTotal(),key:clone(st.key),results:[]};st.tests.push(t);}
+  st.active=t.id;return t;
+}
+function openTest(t){ // switch to an existing test: its title, chapters and answer key come back with it
+  const old=activeTest();if(old&&old!==t)old.key=clone(st.key);
+  st.active=t.id;st.settings.title=t.title;st.settings.chapters=t.chapters.slice();st.key=clone(t.key||emptyKey());
+  save();
+}
+function resolveActive(){ // after the title or chapters were edited in Settings
+  const old=activeTest(),m=findTest();
+  if(m&&m!==old){if(old)old.key=clone(st.key);st.active=m.id;st.key=clone(m.key||emptyKey());toast(`Ești în testul „${m.title}” (${m.results.length} rezultate). Baremul lui a fost încărcat.`,6000);}
+  else if(!m&&old){old.key=clone(st.key);st.active=null;toast('Titlul sau capitolele s-au schimbat: este un test nou. Rezultatele vechi rămân la testul vechi.',6000);}
+  save();
+}
+function newTest(){
+  const t=prompt('Titlul noului test (ex. 1 Samuel 19-21):','');
+  if(t===null||!t.trim())return false;
+  const old=activeTest();if(old)old.key=clone(st.key);
+  st.settings.title=t.trim();
+  const m=findTest();
+  if(m){st.active=m.id;st.key=clone(m.key||emptyKey());toast('Testul există deja — l-am deschis.');}
+  else{st.active=null;st.key=emptyKey();toast('Test nou. Pune capitolele în Setări și baremul în fila Barem.',7000);}
+  save();return true;
+}
 const pname=i=>{const p=st.people[i-1];return p&&p.name?p.name:`(persoana #${i})`;};
 
 // ---------- navigation ----------
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+function updateActInfo(){
+  const t=activeTest(),el=$('#actinfo');
+  el.innerHTML=`Test activ: <b>${esc(st.settings.title)}</b> · ${t?t.results.length+' rezultate':'test nou'} <span style="color:var(--pri)">(schimbă)</span>`;
+  el.onclick=()=>show('list');
+}
 function show(v){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
-  ({scan:()=>{},list:renderList,progress:renderProgress,people:renderPeople,key:renderKey,set:renderSet})[v]();
+  ({scan:updateActInfo,list:renderList,progress:renderProgress,people:renderPeople,key:renderKey,set:renderSet})[v]();
   window.scrollTo(0,0);
 }
 
@@ -367,7 +415,7 @@ function effective(){ // scanner reading + manual corrections
 }
 function startManual(){cur={wp:null,raw:zeroRaw(),sel:0,ov:newOv(),manual:true};show('scan');renderResult();}
 function editSaved(idx){
-  const e=st.results.find(x=>x.idx===idx);
+  const e=R().find(x=>x.idx===idx);
   if(!e||!e.ans){toast('Acest rezultat a fost salvat de o versiune veche și nu poate fi corectat. Rescanează foaia.',5000);return;}
   cur={wp:null,raw:zeroRaw(),sel:idx,ov:[0,1,2].map(c=>e.ans.slice(c*10,c*10+10)),manual:true,editing:true};
   show('scan');renderResult();
@@ -409,10 +457,11 @@ function renderResult(){
   $('#disc').onclick=()=>{const was=cur.editing;cur=null;renderResult();if(was)show('list');};
   $('#save').onclick=()=>{
     if(!cur.sel){toast('Alege mai întâi persoana.');return;}
-    const ex=st.results.findIndex(x=>x.idx===cur.sel);
+    const T0=activeTest()||findTest(),ex=T0?T0.results.findIndex(x=>x.idx===cur.sel):-1;
     if(ex>=0&&!cur.editing&&!confirm(pname(cur.sel)+' este deja în listă. Înlocuiești rezultatul?'))return;
-    const entry={idx:cur.sel,scores:cnt.map(n=>n*s.pts),total:tot,t:(ex>=0&&cur.editing)?st.results[ex].t:Date.now(),issues,v:2,ans:r.ans.flat().map(a=>a.s==='ok'?a.i:-1)};
-    if(ex>=0)st.results[ex]=entry;else st.results.push(entry);
+    const T=ensureTest(),entry={idx:cur.sel,scores:cnt.map(n=>n*s.pts),total:tot,t:(ex>=0&&cur.editing)?T.results[ex].t:Date.now(),issues,v:2,ans:r.ans.flat().map(a=>a.s==='ok'?a.i:-1)};
+    if(ex>=0)T.results[ex]=entry;else T.results.push(entry);
+    T.key=clone(st.key);T.max=maxTotal();
     save();toast('Salvat: '+pname(cur.sel)+' – '+tot+'/'+maxTotal());
     const was=cur.editing;cur=null;renderResult();if(was)show('list');
   };
@@ -421,7 +470,7 @@ function renderResult(){
 // ---------- results ----------
 let sortMode='time';
 function sortedResults(){
-  const a=st.results.slice(),gi=g=>{const i=GROUPS.indexOf(g);return i<0?99:i;};
+  const a=R().slice(),gi=g=>{const i=GROUPS.indexOf(g);return i<0?99:i;};
   if(sortMode==='name')a.sort((x,y)=>pname(x.idx).localeCompare(pname(y.idx)));
   else if(sortMode==='group')a.sort((x,y)=>gi(st.people[x.idx-1].group)-gi(st.people[y.idx-1].group)||pname(x.idx).localeCompare(pname(y.idx)));
   else if(sortMode==='score')a.sort((x,y)=>y.total-x.total);
@@ -443,30 +492,33 @@ async function copyText(t){
   toast('Copiat. Lipește în WhatsApp.');
 }
 function renderList(){
-  const box=$('#list'),res=sortedResults(),done=new Set(st.results.map(r=>r.idx));
+  const box=$('#list'),res=sortedResults(),done=new Set(R().map(r=>r.idx));
   const missing=st.people.map((p,i)=>({p,i:i+1})).filter(x=>x.p.name&&!done.has(x.i));
-  box.innerHTML=`<div class="card">
+  const act=activeTest();
+  box.innerHTML=`<div class="card"><div class="mut">Test activ (aici se adaugă rezultatele noi)</div>
+    <select id="tsel">${st.tests.map(t=>`<option value="${t.id}" ${act&&act.id===t.id?'selected':''}>${esc(t.title)} · ${t.results.length} rezultate</option>`).join('')}${act?'':`<option value="" selected>${esc(st.settings.title)} · test nou</option>`}<option value="__new">➕ Test nou…</option></select>
+    <div class="mut" style="margin-top:6px">Testele sunt legate de titlu + capitole: dacă le pui la fel ca la un test vechi, ești din nou în acel test.</div></div>
+  <div class="card">
     <select id="sort"><option value="time">Ordinea scanării</option><option value="name">După nume</option><option value="group">După grupă</option><option value="score">După scor</option></select>
     <button class="btn" id="cp">Copiază pentru WhatsApp</button>
     ${navigator.share?'<button class="btn sec" id="sh">Trimite…</button>':''}
   </div>
   <div class="card">${res.length?'<div class="mut" style="margin-bottom:4px">Atinge un rezultat ca să-l corectezi · trage-l spre stânga ca să-l ștergi</div>'+res.map(e=>`<div class="swipe" data-idx="${e.idx}"><div class="sbg">Șterge</div><div class="srow"><div><b>${esc(pname(e.idx))}</b> <span class="mut">${esc(st.people[e.idx-1].group)}</span><div class="mut">${e.scores.join(' / ')}${e.issues?' · '+e.issues+' neclare':''}</div></div><div class="row"><span class="dot" style="background:${scoreColor(e.total)}"></span><b>${e.total}/${maxTotal()}</b></div></div></div>`).join(''):'<div class="mut">Niciun rezultat încă.</div>'}</div>
   ${missing.length?`<div class="card"><b>Încă nescanați (${missing.length})</b><div class="mut">${missing.map(x=>esc(x.p.name)).join(', ')}</div></div>`:''}
-  ${res.length?'<button class="btn" id="endtest">Încheie testul și începe unul nou</button><div class="mut" style="margin:-2px 0 10px">Salvează lista în Progres, ca să vezi cum evoluează fiecare după mai multe teste.</div><button class="btn sec" id="clr">Șterge toate rezultatele</button>':''}`;
+  ${res.length?'<button class="btn sec" id="clr">Șterge toate rezultatele acestui test</button>':''}`;
   $('#sort').value=sortMode;$('#sort').onchange=e=>{sortMode=e.target.value;renderList();};
   $('#cp').onclick=()=>copyText(shareText());
   if($('#sh'))$('#sh').onclick=()=>navigator.share({text:shareText()}).catch(()=>{});
   box.querySelectorAll('.swipe').forEach(el=>{const idx=+el.dataset.idx;
-    wireSwipe(el,()=>editSaved(idx),()=>{if(confirm('Ștergi rezultatul lui '+pname(idx)+'?')){st.results=st.results.filter(x=>x.idx!==idx);save();renderList();return true;}return false;});});
-  if($('#endtest'))$('#endtest').onclick=()=>{
-    const def=`${st.settings.title} · ${fmtDate(Date.now())}`;
-    const name=prompt('Numele testului (apare în tabelul de progres):',def);
-    if(name===null)return;
-    st.history.push({name:name.trim()||def,date:Date.now(),max:maxTotal(),results:st.results});
-    st.results=[];save();renderList();
-    toast('Test salvat în Progres. Dacă urmează alt test, verifică baremul și titlul.',6000);
+    wireSwipe(el,()=>editSaved(idx),()=>{if(confirm('Ștergi rezultatul lui '+pname(idx)+'?')){const T=activeTest();T.results=T.results.filter(x=>x.idx!==idx);save();renderList();return true;}return false;});});
+  $('#tsel').onchange=e=>{
+    const v=e.target.value;
+    if(v==='__new'){newTest();renderList();return;}
+    const t=st.tests.find(x=>x.id===v);
+    if(t&&t!==activeTest()){openTest(t);toast(`Test deschis: ${t.title}. Baremul lui a fost încărcat.`,5000);}
+    renderList();
   };
-  if($('#clr'))$('#clr').onclick=()=>{if(confirm('Ștergi TOATE rezultatele? Copiază lista înainte dacă ai nevoie de ea.')){st.results=[];save();renderList();}};
+  if($('#clr'))$('#clr').onclick=()=>{if(confirm('Ștergi TOATE rezultatele acestui test? Copiază lista înainte dacă ai nevoie de ea.')){activeTest().results=[];save();renderList();}};
 }
 // swipe left to delete (pointer events, no library); a plain tap opens the result for correction
 function wireSwipe(el,onTap,onDel){
@@ -497,8 +549,7 @@ const fmtDate=t=>new Date(t).toLocaleDateString('ro-RO',{day:'2-digit',month:'2-
 let pSort='delta';
 function renderProgress(){
   const box=$('#progress');
-  const tests=st.history.map(h=>({name:h.name,date:h.date,max:h.max||100,map:Object.fromEntries(h.results.map(r=>[r.idx,r.total]))}));
-  if(st.results.length)tests.push({name:'Test curent',date:null,max:maxTotal(),map:Object.fromEntries(st.results.map(r=>[r.idx,r.total]))});
+  const tests=st.tests.filter(t=>t.results.length).sort((a,b)=>a.date-b.date).map(t=>({name:t.title,date:t.date,max:t.max||100,map:Object.fromEntries(t.results.map(r=>[r.idx,r.total]))}));
   const rows=[];
   for(let i=1;i<=31;i++){
     const sc=tests.map(t=>t.map[i]);
@@ -510,20 +561,24 @@ function renderProgress(){
   else if(pSort==='avg')rows.sort((a,b)=>b.avg-a.avg);
   else rows.sort((a,b)=>(b.delta==null?-1e9:b.delta)-(a.delta==null?-1e9:a.delta));
   const dcell=d=>d==null?'<span class="mut">–</span>':`<b style="color:var(--${d>0?'ok':d<0?'bad':'mut'})">${d>0?'▲ +'+d:d<0?'▼ '+d:'= 0'}</b>`;
-  const table=rows.length?`<div class="tw"><table class="pt"><thead><tr><th>Nume</th>${tests.map(t=>`<th>${esc(t.name)}${t.date?'<div>'+fmtDate(t.date)+'</div>':''}</th>`).join('')}<th>Progres</th><th>Medie</th></tr></thead><tbody>${
+  const table=rows.length?`<div class="tw"><table class="pt"><thead><tr><th>Nume</th>${tests.map(t=>`<th>${esc(t.name)}<div>${fmtDate(t.date)}</div></th>`).join('')}<th>Progres</th><th>Medie</th></tr></thead><tbody>${
     rows.map(r=>`<tr><td>${esc(pname(r.i))}</td>${r.sc.map((v,k)=>v==null?'<td class="mut">–</td>':`<td><span class="dot i" style="background:${scoreColor(v,tests[k].max)}"></span>${v}</td>`).join('')}<td>${dcell(r.delta)}</td><td>${r.avg}</td></tr>`).join('')
-  }</tbody></table></div>`:'<div class="mut">Încă nu există rezultate. Salvează rezultate în fila Rezultate, apoi apasă „Încheie testul” ca să începi un test nou.</div>';
+  }</tbody></table></div>`:'<div class="mut">Încă nu există rezultate. Scanează și salvează rezultate; progresul apare după cel puțin două teste.</div>';
   box.innerHTML=`<div class="card">
     <select id="psort"><option value="delta">Cel mai mare progres primul</option><option value="avg">După medie</option><option value="name">După nume</option></select>
     ${table}
     ${tests.length===1&&rows.length?'<div class="mut" style="margin-top:8px">Progresul apare după cel puțin două teste.</div>':''}
     <div class="mut" style="margin-top:8px">Progres = scorul ultimului test minus primul (pe scara 0–100). Medie = media tuturor testelor.</div></div>
-  ${st.history.length?`<div class="card"><b>Teste încheiate</b><div class="mut" style="margin-bottom:4px">Atinge ca să redenumești · trage spre stânga ca să ștergi</div>${
-    st.history.map((h,k)=>`<div class="swipe" data-k="${k}"><div class="sbg">Șterge</div><div class="srow"><div><b>${esc(h.name)}</b><div class="mut">${fmtDate(h.date)} · ${h.results.length} rezultate</div></div></div></div>`).join('')}</div>`:''}`;
+  ${st.tests.length?`<div class="card"><b>Toate testele</b><div class="mut" style="margin-bottom:4px">Atinge un test ca să-l deschizi și să adaugi rezultate · trage spre stânga ca să-l ștergi</div>${
+    st.tests.map((t,k)=>`<div class="swipe" data-k="${k}"><div class="sbg">Șterge</div><div class="srow"><div><b>${esc(t.title)}</b>${t.id===st.active?' <span class="mut">(activ)</span>':''}<div class="mut">${fmtDate(t.date)} · ${t.results.length} rezultate</div></div><button class="btn sm sec rn" data-k="${k}" style="margin:0">Redenumește</button></div></div>`).join('')}</div>`:''}`;
   $('#psort').value=pSort;$('#psort').onchange=e=>{pSort=e.target.value;renderProgress();};
+  box.querySelectorAll('.rn').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();const t=st.tests[+b.dataset.k],n=prompt('Redenumește testul:',t.title);
+    if(n&&n.trim()){t.title=n.trim();if(t.id===st.active)st.settings.title=t.title;save();renderProgress();}
+  });
   box.querySelectorAll('.swipe').forEach(el=>{const k=+el.dataset.k;
-    wireSwipe(el,()=>{const n=prompt('Redenumește testul:',st.history[k].name);if(n&&n.trim()){st.history[k].name=n.trim();save();renderProgress();}},
-      ()=>{if(confirm('Ștergi testul „'+st.history[k].name+'”? Dispare din tabelul de progres.')){st.history.splice(k,1);save();renderProgress();return true;}return false;});});
+    wireSwipe(el,()=>{openTest(st.tests[k]);show('list');toast('Test deschis: '+st.tests[k].title+'. Poți adăuga rezultate.',5000);},
+      ()=>{const t=st.tests[k];if(confirm('Ștergi testul „'+t.title+'” cu toate rezultatele lui?')){if(t.id===st.active)st.active=null;st.tests.splice(k,1);save();renderProgress();return true;}return false;});});
 }
 
 // ---------- people ----------
@@ -608,7 +663,8 @@ function renderSet(){
     <button class="btn sec" id="rsgo">Restaurează din backup-ul lipit</button>
     <div class="mut">Datele sunt păstrate doar în acest browser, pe acest telefon. Dacă ai instalat aplicația pe ecranul principal, deschide-o mereu din acea pictogramă (are spațiul ei de stocare). Copiază un backup din când în când.</div></div>`;
   $('#s-title').oninput=e=>{s.title=e.target.value;save();};
-  box.querySelectorAll('[data-ch]').forEach(i=>i.oninput=()=>{s.chapters[+i.dataset.ch]=i.value;save();});
+  $('#s-title').onchange=resolveActive;
+  box.querySelectorAll('[data-ch]').forEach(i=>{i.oninput=()=>{s.chapters[+i.dataset.ch]=i.value;save();};i.onchange=resolveActive;});
   $('#s-pts').oninput=e=>{s.pts=Math.max(1,+e.target.value||3);save();};
   $('#s-base').onchange=e=>{s.base=Math.max(0,+e.target.value||0);save();renderSet();};
   $('#s-thr').oninput=e=>{s.thr=+e.target.value;$('#thv').textContent=s.thr;save();};
