@@ -91,11 +91,11 @@ input[type=file]{display:none}
 
 <!-- ================= CORE (pure logic, no DOM) ================= -->
 <script id="core">
-// Sheet geometry in pixels of the reference template image (512 x 687).
+// Sheet geometry in pixels of the reference template image (558 x 761).
 // Circle centers were measured on the real template; the 4 black squares are the alignment markers.
-const REF_W=512, REF_H=687, S=2, R_IN=6.5, DARK_RATIO=0.66, MAXSIDE=1800;
-const MARKERS=[[18.3,16.8],[488.8,18.3],[18.3,665.8],[491.3,665.8]];   // TL, TR, BL, BR
-const PTS={"code":[[313,101],[347,101],[381,101],[415,101],[448.5,101]],"q":[[[[69,240],[108,240]],[[69,285.5],[108,285.5]],[[68.5,328.5],[107.5,329.5]],[[69,373.5],[107,374]],[[68.5,416.5],[106.5,416.5]],[[68.5,462.5],[102,463],[135.5,462.5]],[[68,505.5],[102,505.5],[135.5,505.5]],[[68,548.5],[102,548.5],[135.5,548.5]],[[68,591.5],[102,591.5],[135.5,591.5]],[[73,635],[106.5,634.5],[140,635]]],[[[234.5,242.5],[272.5,242.5]],[[234,288],[272,288]],[[233.5,331.5],[272,332]],[[234,376],[271.5,376.5]],[[233.5,419],[271.5,419.5]],[[233.5,465.5],[267,465.5],[300.5,465.5]],[[233,508],[267,508],[300.5,508]],[[233,551.5],[267,551.5],[300.5,551.5]],[[233,594.5],[267,594.5],[300.5,594.5]],[[237.5,637.5],[271,637.5],[304.5,637.5]]],[[[395,242],[433.5,242]],[[394.5,287],[433,287]],[[394.5,331],[433,331]],[[394.5,375.5],[432.5,375.5]],[[394,418.5],[431.5,418.5]],[[394,464.5],[427.5,464.5],[461,464.5]],[[394,507.5],[427,507.5],[461,507.5]],[[394,550.5],[427,550.5],[461,550.5]],[[394,593.5],[427,593.5],[461,593.5]],[[398,637],[431.5,637],[465,637]]]]};   // {code:[[x,y]x5], q:[chapter][row 0..9][option][x,y]}
+const REF_W=558, REF_H=761, S=2, R_IN=7.5, DARK_RATIO=0.66, MAXSIDE=1800;
+const MARKERS=[[33,28],[522,28],[33,725],[518,725]];   // TL, TR, BL, BR (centers of the 4 black squares)
+const PTS={"code":[[334.8,120.0],[370.0,120.0],[405.0,120.0],[440.0,120.0],[475.2,120.0]],"q":[[[[83.5,263.5],[123.5,263.5]],[[83.0,310.0],[123.0,310.0]],[[83.0,355.0],[122.5,355.5]],[[83.0,401.0],[122.5,401.5]],[[82.5,445.5],[122.0,446.0]],[[82.8,493.5],[118.0,493.5],[152.7,493.5]],[[82.3,537.0],[117.0,537.0],[152.2,537.0]],[[82.3,581.5],[117.0,581.5],[152.2,581.5]],[[82.3,626.0],[117.0,626.0],[152.2,626.0]],[[87.4,671.0],[122.0,671.0],[156.7,671.0]]],[[[253.5,266.5],[293.5,266.5]],[[253.0,313.0],[293.0,313.0]],[[253.0,358.0],[292.5,358.5]],[[253.0,404.0],[292.5,404.5]],[[252.5,448.5],[292.0,449.0]],[[252.8,496.5],[288.0,496.5],[322.7,496.5]],[[252.3,540.5],[287.0,540.5],[322.2,540.5]],[[252.3,584.5],[287.0,584.5],[322.2,584.5]],[[252.3,629.0],[287.0,629.0],[322.2,629.0]],[[257.4,674.0],[292.0,674.0],[326.7,674.0]]],[[[419.5,265.5],[459.5,265.5]],[[419.0,312.0],[459.0,312.0]],[[419.0,357.5],[458.5,358.0]],[[419.0,403.5],[458.5,404.0]],[[418.5,447.5],[458.0,448.0]],[[418.8,495.5],[453.5,495.5],[488.2,495.5]],[[418.3,539.5],[453.0,539.5],[487.7,539.5]],[[418.3,584.0],[453.0,584.0],[487.7,584.0]],[[418.3,628.0],[453.0,628.0],[487.7,628.0]],[[422.8,673.0],[458.0,673.0],[492.6,673.0]]]]};   // {code:[[x,y]x5], q:[chapter][row 0..9][option][x,y]}
 const TF=['A','F'], ABC=['a','b','c'];
 let _L=null;
 function layout(){
@@ -395,8 +395,8 @@ function paintOverlay(){
   for(let i=0;i<wp.g.length;i++){const v=wp.g[i];id.data[4*i]=id.data[4*i+1]=id.data[4*i+2]=v;id.data[4*i+3]=255;}
   ctx.putImageData(id,0,0);
   const GREEN=['#16a34a','rgba(22,163,74,.55)'],RED=['#dc2626','rgba(220,38,38,.55)'],BLUE=['#2563eb','rgba(37,99,235,.55)'],AMBER=['#d97706','rgba(217,119,6,.55)'],YELLOW=['#eab308','rgba(250,204,21,.7)'];
-  const disk=(o,c)=>{ctx.beginPath();ctx.arc(o.x*S,o.y*S,10*S,0,7);ctx.fillStyle=c[1];ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=c[0];ctx.stroke();};
-  const ring=(o,c)=>{ctx.beginPath();ctx.arc(o.x*S,o.y*S,12.5*S,0,7);ctx.lineWidth=5;ctx.strokeStyle=c[0];ctx.stroke();};
+  const disk=(o,c)=>{ctx.beginPath();ctx.arc(o.x*S,o.y*S,11*S,0,7);ctx.fillStyle=c[1];ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=c[0];ctx.stroke();};
+  const ring=(o,c)=>{ctx.beginPath();ctx.arc(o.x*S,o.y*S,13.8*S,0,7);ctx.lineWidth=5;ctx.strokeStyle=c[0];ctx.stroke();};
   L.code.forEach((o,i)=>{if(raw.code[i]>thr)disk(o,BLUE);});
   L.q.forEach((col,c)=>col.forEach((opts,q)=>{
     const k=st.key[c][q],ki=k?opts.findIndex(o=>o.label===k):-1,a=r.ans[c][q];
@@ -409,12 +409,12 @@ function paintOverlay(){
   const p=cur.sel?st.people[cur.sel-1]:null;
   const name=p&&p.name?p.name:(cur.sel?`(persoana #${cur.sel})`:'(alege persoana)');
   const line2=(p&&p.group?p.group+'  ·  ':'')+cur.total+' / '+maxTotal();
-  ctx.fillStyle='rgba(255,255,255,.93)';ctx.fillRect(262*S,6*S,212*S,56*S);
-  ctx.lineWidth=3;ctx.strokeStyle=BLUE[0];ctx.strokeRect(262*S,6*S,212*S,56*S);
+  ctx.fillStyle='rgba(255,255,255,.93)';ctx.fillRect(262*S,12*S,238*S,38*S);
+  ctx.lineWidth=3;ctx.strokeStyle=BLUE[0];ctx.strokeRect(262*S,12*S,238*S,38*S);
   ctx.fillStyle='#1d4ed8';ctx.textAlign='center';ctx.textBaseline='middle';
   const fit=(t,maxW,px)=>{do{ctx.font=`700 ${px}px -apple-system,Arial,sans-serif`;if(ctx.measureText(t).width<=maxW||px<=10)break;px-=1;}while(true);};
-  fit(name,200*S,19*S);ctx.fillText(name,368*S,22*S);
-  fit(line2,200*S,21*S);ctx.fillText(line2,368*S,45*S);
+  fit(name,226*S,14*S);ctx.fillText(name,381*S,24*S);
+  fit(line2,226*S,15*S);ctx.fillText(line2,381*S,40*S);
 }
 
 function newOv(){return [0,1,2].map(()=>Array(10).fill(null));}
