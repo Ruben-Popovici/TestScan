@@ -256,31 +256,59 @@ const DEF=()=>({
   people:Array.from({length:31},()=>({name:'',group:''})),
   key:[0,1,2].map(()=>Array(10).fill(null)),
   tests:[],     // every test: {id,title,chapters,date,max,key,results:[...]}; a test is identified by title + chapters
-  active:null   // id of the test that new scans are added to (null = a new test that has no results yet)
+  active:null,  // id of the test that new scans are added to (null = a new test that has no results yet)
+  draftDate:null, // date chosen for a test that has no results yet
+  ver:3
 });
 const emptyKey=()=>[0,1,2].map(()=>Array(10).fill(null));
 const clone=o=>JSON.parse(JSON.stringify(o));
 let st=load();
 function load(){
   let s=null;try{s=JSON.parse(localStorage.getItem('tf_v1'));}catch(e){}
-  const d=DEF();
-  if(!s||!s.settings||!s.people)return d;
-  const out=Object.assign(d,s);
-  out.settings=Object.assign(DEF().settings,s.settings);
-  while(out.people.length<31)out.people.push({name:'',group:''});
-  out.results=out.results||[];
-  out.results.forEach(e=>{if(!e.v){e.total+=out.settings.base;e.v=2;}}); // older saves had no base points
-  if(!Array.isArray(s.tests)){ // migrate older saves (separate "current results" + "history")
-    out.tests=[];out.active=null;
-    (out.history||[]).forEach((x,k)=>out.tests.push({id:'h'+k,title:x.name,chapters:out.settings.chapters.slice(),date:x.date,max:x.max||100,key:emptyKey(),results:x.results||[]}));
-    if(out.results.length){
-      out.tests.push({id:'cur',title:out.settings.title,chapters:out.settings.chapters.slice(),date:Math.min(...out.results.map(e=>e.t||Date.now())),max:out.settings.base+30*out.settings.pts,key:JSON.parse(JSON.stringify(out.key)),results:out.results});
-      out.active='cur';
-    }
+  return s?normalize(s):DEF();
+}
+// Turns any save or backup (every older version too, with missing or odd fields) into a clean current state.
+function normalize(s){
+  const d=DEF();if(!s||typeof s!=='object')return d;
+  const num=(v,def)=>(v===null||v===''||v===undefined||!Number.isFinite(+v))?def:+v;
+  const str=v=>v==null?'':String(v);
+  const o=Object.assign({},d);
+  const se=Object.assign({},d.settings,(s.settings&&typeof s.settings==='object')?s.settings:{});
+  se.title=str(se.title)||d.settings.title;se.pts=Math.max(1,num(se.pts,3));se.base=Math.max(0,num(se.base,10));
+  se.thr=Math.min(0.9,Math.max(0.2,num(se.thr,0.55)));se.charts=se.charts!==false;
+  se.chapters=[0,1,2].map(i=>str(Array.isArray(se.chapters)&&se.chapters[i]!=null?se.chapters[i]:d.settings.chapters[i]));
+  o.settings=se;
+  o.people=Array.from({length:31},(_,i)=>{const p=Array.isArray(s.people)?s.people[i]:null;return {name:str(p&&p.name),group:str(p&&p.group)};});
+  const fixKey=k=>[0,1,2].map(c=>Array.from({length:10},(_,r)=>{const v=Array.isArray(k)&&Array.isArray(k[c])?k[c][r]:null;return (r<5?['A','F']:['a','b','c']).includes(v)?v:null;}));
+  o.key=fixKey(s.key);
+  const fixRes=arr=>(Array.isArray(arr)?arr:[]).map(e=>{
+    if(!e||typeof e!=='object')return null;
+    const idx=Math.round(num(e.idx,0));if(idx<1||idx>31)return null;
+    let total=num(e.total,NaN);if(!Number.isFinite(total))return null;
+    if(!e.v)total+=se.base;                       // saves from before the base points existed
+    const r={idx,scores:Array.isArray(e.scores)?e.scores.slice(0,3).map(x=>num(x,0)):[0,0,0],total,t:num(e.t,Date.now()),issues:num(e.issues,0),v:2};
+    if(Array.isArray(e.ans)&&e.ans.length===30)r.ans=e.ans.map(x=>Math.round(num(x,-1)));
+    return r;
+  }).filter(Boolean);
+  const dedupe=a=>{const m=new Map();a.forEach(r=>{const p=m.get(r.idx);if(!p||r.t>=p.t)m.set(r.idx,r);});return [...m.values()];};
+  const fixTest=(t,i)=>{
+    if(!t||typeof t!=='object')return null;
+    const results=dedupe(fixRes(t.results));
+    return {id:str(t.id)||('r'+i),title:str(t.title!=null?t.title:t.name)||('Test '+(i+1)),
+      chapters:(Array.isArray(t.chapters)&&t.chapters.length?[0,1,2].map(j=>str(t.chapters[j]!=null?t.chapters[j]:se.chapters[j])):(chaptersFromTitle(str(t.title!=null?t.title:t.name))||se.chapters.slice())),
+      date:num(t.date,results.length?Math.min(...results.map(r=>r.t)):Date.now()),max:num(t.max,0)||(se.base+30*se.pts),key:fixKey(t.key),results};
+  };
+  let tests,active=null;
+  if(Array.isArray(s.tests)){tests=s.tests.map(fixTest).filter(Boolean);active=s.active;}
+  else{ // older versions: "current results" + "history"
+    tests=(Array.isArray(s.history)?s.history:[]).map((x,i)=>x&&typeof x==='object'?fixTest(Object.assign({},x,{id:'h'+i}),i):null).filter(Boolean);
+    const cr=dedupe(fixRes(s.results));
+    if(cr.length){tests.push({id:'cur',title:se.title,chapters:se.chapters.slice(),date:Math.min(...cr.map(r=>r.t)),max:se.base+30*se.pts,key:fixKey(s.key),results:cr});active='cur';}
   }
-  delete out.results;delete out.history;
-  if(out.active==null)out.active=null;
-  return out;
+  const seen=new Set();tests.forEach((t,i)=>{while(seen.has(t.id))t.id+='_'+i;seen.add(t.id);});
+  o.tests=tests;o.active=tests.some(t=>t.id===active)?active:null;
+  o.draftDate=num(s.draftDate,null);o.ver=3;
+  return o;
 }
 function save(){try{localStorage.setItem('tf_v1',JSON.stringify(st));}catch(e){toast('Nu s-a putut salva în acest browser.');}}
 function toast(m,ms=3500){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',ms);}
@@ -298,7 +326,7 @@ const sameCh=(a,b)=>a.length===b.length&&a.every((x,i)=>x===b[i]);
 const findTest=()=>st.tests.find(t=>t.title===st.settings.title&&sameCh(t.chapters,st.settings.chapters))||null;
 function ensureTest(){ // the test that gets the next saved result; created on first save
   let t=activeTest()||findTest();
-  if(!t){t={id:'t'+Date.now().toString(36),title:st.settings.title,chapters:st.settings.chapters.slice(),date:Date.now(),max:maxTotal(),key:clone(st.key),results:[]};st.tests.push(t);}
+  if(!t){t={id:'t'+Date.now().toString(36),title:st.settings.title,chapters:st.settings.chapters.slice(),date:st.draftDate||Date.now(),max:maxTotal(),key:clone(st.key),results:[]};st.tests.push(t);st.draftDate=null;}
   st.active=t.id;return t;
 }
 function openTest(t){ // switch to an existing test: its title, chapters and answer key come back with it
@@ -322,6 +350,7 @@ function newTest(){
   const t=prompt('Titlul noului test (ex. 1 Samuel 19-21):','');
   if(t===null||!t.trim())return false;
   const old=activeTest();if(old)old.key=clone(st.key);
+  st.draftDate=null;
   st.settings.title=t.trim();
   {const ch=chaptersFromTitle(st.settings.title);if(ch)st.settings.chapters=ch;}
   const m=findTest();
@@ -507,7 +536,9 @@ function renderList(){
   const missing=st.people.map((p,i)=>({p,i:i+1})).filter(x=>x.p.name&&!done.has(x.i));
   const act=activeTest();
   box.innerHTML=`<div class="card"><div class="mut">Test activ (aici se adaugă rezultatele noi)</div>
-    <select id="tsel">${st.tests.map(t=>`<option value="${t.id}" ${act&&act.id===t.id?'selected':''}>${esc(t.title)} · ${t.results.length} rezultate</option>`).join('')}${act?'':`<option value="" selected>${esc(st.settings.title)} · test nou</option>`}<option value="__new">➕ Test nou…</option></select>
+    <select id="tsel">${st.tests.slice().sort((a,b)=>a.date-b.date).map(t=>`<option value="${t.id}" ${act&&act.id===t.id?'selected':''}>${esc(t.title)} · ${fmtDate(t.date)} · ${t.results.length} rezultate</option>`).join('')}${act?'':`<option value="" selected>${esc(st.settings.title)} · test nou</option>`}<option value="__new">➕ Test nou…</option></select>
+    <label class="mut" style="display:block;margin-top:8px">Data testului</label>
+    <input type="date" id="tdate" value="${dstr(act?act.date:(st.draftDate||Date.now()))}">
     <div class="mut" style="margin-top:6px">Testele sunt legate de titlu + capitole: dacă le pui la fel ca la un test vechi, ești din nou în acel test.</div></div>
   <div class="card">
     <select id="sort"><option value="time">Ordinea scanării</option><option value="name">După nume</option><option value="group">După grupă</option><option value="score">După scor</option></select>
@@ -522,6 +553,11 @@ function renderList(){
   if($('#sh'))$('#sh').onclick=()=>navigator.share({text:shareText()}).catch(()=>{});
   box.querySelectorAll('.swipe').forEach(el=>{const idx=+el.dataset.idx;
     wireSwipe(el,()=>editSaved(idx),()=>{if(confirm('Ștergi rezultatul lui '+pname(idx)+'?')){const T=activeTest();T.results=T.results.filter(x=>x.idx!==idx);save();renderList();return true;}return false;});});
+  $('#tdate').onchange=e=>{
+    const ms=fromDstr(e.target.value);if(!ms){renderList();return;}
+    const t=activeTest();if(t)t.date=ms;else st.draftDate=ms;
+    save();renderList();toast('Data testului: '+fmtDate(ms));
+  };
   $('#tsel').onchange=e=>{
     const v=e.target.value;
     if(v==='__new'){newTest();renderList();return;}
@@ -556,7 +592,9 @@ function wireSwipe(el,onTap,onDel){
 }
 
 // ---------- progress ----------
-const fmtDate=t=>new Date(t).toLocaleDateString('ro-RO',{day:'2-digit',month:'2-digit'});
+const fmtDate=t=>{const d=new Date(t);return d.toLocaleDateString('ro-RO',d.getFullYear()===new Date().getFullYear()?{day:'2-digit',month:'2-digit'}:{day:'2-digit',month:'2-digit',year:'2-digit'});};
+const dstr=ms=>{const d=new Date(ms);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+const fromDstr=v=>v?new Date(v+'T12:00:00').getTime():null;
 let pSort='delta';
 const testSeries=()=>st.tests.filter(t=>t.results.length).sort((a,b)=>a.date-b.date).map(t=>({name:t.title,date:t.date,max:t.max||100,map:Object.fromEntries(t.results.map(r=>[r.idx,r.total]))}));
 // one small chart per person: x = tests in order, y = grade; green/red segment = went up/down, dashed = skipped a test
@@ -606,8 +644,12 @@ function renderProgress(){
     ${tests.length===1&&rows.length?'<div class="mut" style="margin-top:8px">Progresul apare după cel puțin două teste.</div>':''}
     <div class="mut" style="margin-top:8px">Progres = scorul ultimului test minus primul (pe scara 0–100). Medie = media tuturor testelor.</div></div>
   ${st.tests.length?`<div class="card"><b>Toate testele</b><div class="mut" style="margin-bottom:4px">Atinge un test ca să-l deschizi și să adaugi rezultate · trage spre stânga ca să-l ștergi</div>${
-    st.tests.map((t,k)=>`<div class="swipe" data-k="${k}"><div class="sbg">Șterge</div><div class="srow"><div><b>${esc(t.title)}</b>${t.id===st.active?' <span class="mut">(activ)</span>':''}<div class="mut">${fmtDate(t.date)} · ${t.results.length} rezultate</div></div><button class="btn sm sec rn" data-k="${k}" style="margin:0">Redenumește</button></div></div>`).join('')}</div>`:''}`;
+    st.tests.map((t,k)=>`<div class="swipe" data-k="${k}"><div class="sbg">Șterge</div><div class="srow"><div><b>${esc(t.title)}</b>${t.id===st.active?' <span class="mut">(activ)</span>':''}<div class="mut">${t.results.length} rezultate · <input type="date" class="dt" data-k="${k}" value="${dstr(t.date)}" style="width:auto;padding:2px 6px;font-size:13px"></div></div><button class="btn sm sec rn" data-k="${k}" style="margin:0">Redenumește</button></div></div>`).join('')}</div>`:''}`;
   $('#psort').value=pSort;$('#psort').onchange=e=>{pSort=e.target.value;renderProgress();};
+  box.querySelectorAll('.dt').forEach(i=>{
+    ['click','pointerdown'].forEach(ev=>i.addEventListener(ev,e=>e.stopPropagation()));
+    i.onchange=()=>{const ms=fromDstr(i.value);if(ms){st.tests[+i.dataset.k].date=ms;save();renderProgress();}};
+  });
   box.querySelectorAll('.rn').forEach(b=>b.onclick=e=>{
     e.stopPropagation();const t=st.tests[+b.dataset.k],n=prompt('Redenumește testul:',t.title);
     if(n&&n.trim()){t.title=n.trim();const ch=chaptersFromTitle(t.title);if(ch)t.chapters=ch;if(t.id===st.active){st.settings.title=t.title;if(ch)st.settings.chapters=ch;}save();renderProgress();}
@@ -711,8 +753,10 @@ function renderSet(){
   <div class="card"><b>Copie de siguranță</b>
     <button class="btn sec" id="bk">Copiază backup</button>
     <textarea id="rs" rows="3" placeholder="Lipește aici un backup ca să restaurezi"></textarea>
-    <button class="btn sec" id="rsgo">Restaurează din backup-ul lipit</button>
-    <div class="mut">Datele sunt păstrate doar în acest browser, pe acest telefon. Dacă ai instalat aplicația pe ecranul principal, deschide-o mereu din acea pictogramă (are spațiul ei de stocare). Copiază un backup din când în când.</div></div>`;
+    <button class="btn sec" id="rsgo">Restaurează (înlocuiește tot)</button>
+    <button class="btn sec" id="rsmerge">Adaugă din backup (păstrează ce ai)</button>
+    <div class="mut">Merge cu backup-uri din orice versiune mai veche. „Adaugă” completează persoanele fără nume și adaugă testele și rezultatele care lipsesc, fără să șteargă nimic.</div>
+    <div class="mut" style="margin-top:6px">Datele sunt păstrate doar în acest browser, pe acest telefon. Dacă ai instalat aplicația pe ecranul principal, deschide-o mereu din acea pictogramă (are spațiul ei de stocare). Copiază un backup din când în când.</div></div>`;
   $('#s-title').oninput=e=>{s.title=e.target.value;const ch=chaptersFromTitle(s.title);if(ch){s.chapters=ch;box.querySelectorAll('[data-ch]').forEach((i,k)=>i.value=ch[k]);}save();};
   $('#s-title').onchange=resolveActive;
   box.querySelectorAll('[data-ch]').forEach(i=>{i.oninput=()=>{s.chapters[+i.dataset.ch]=i.value;save();};i.onchange=resolveActive;});
@@ -720,7 +764,35 @@ function renderSet(){
   $('#s-base').onchange=e=>{s.base=Math.max(0,+e.target.value||0);save();renderSet();};
   $('#s-thr').oninput=e=>{s.thr=+e.target.value;$('#thv').textContent=s.thr;save();};
   $('#bk').onclick=()=>copyText(JSON.stringify(st));
-  $('#rsgo').onclick=()=>{try{const j=JSON.parse($('#rs').value);if(!j.settings||!j.people)throw 0;if(!confirm('Înlocuiești tot ce e pe acest telefon cu backup-ul?'))return;localStorage.setItem('tf_v1',JSON.stringify(j));st=load();save();renderSet();toast('Restaurat.');}catch(e){toast('Acesta nu este un backup valid.');}};
+  $('#rsgo').onclick=()=>restoreBackup(false);
+  $('#rsmerge').onclick=()=>restoreBackup(true);
+}
+function parseBackup(){
+  let t=$('#rs').value.trim();const i=t.indexOf('{'),j=t.lastIndexOf('}');
+  if(i<0||j<i){toast('Acesta nu este un backup valid.');return null;}
+  try{
+    const o=JSON.parse(t.slice(i,j+1));
+    if(!o||typeof o!=='object'||!['settings','people','tests','results','history','key'].some(k=>k in o))throw 0;
+    return normalize(o);
+  }catch(e){toast('Acesta nu este un backup valid.');return null;}
+}
+function restoreBackup(merge){
+  const b=parseBackup();if(!b)return;
+  if(!merge){
+    if(!confirm('Înlocuiești tot ce e pe acest telefon cu backup-ul?'))return;
+    st=b;cur=null;save();renderSet();toast(`Restaurat: ${b.tests.length} teste, ${b.people.filter(p=>p.name).length} persoane.`,5000);return;
+  }
+  let np=0,nt=0,nr=0;
+  b.people.forEach((p,i)=>{const q=st.people[i];if(!q.name&&p.name){q.name=p.name;np++;}if(!q.group&&p.group)q.group=p.group;});
+  b.tests.forEach(bt=>{
+    const at=st.tests.find(t=>t.title===bt.title&&sameCh(t.chapters,bt.chapters));
+    if(!at){if(st.tests.some(t=>t.id===bt.id))bt.id='m'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);st.tests.push(bt);nt++;nr+=bt.results.length;return;}
+    bt.results.forEach(r=>{const k=at.results.findIndex(x=>x.idx===r.idx);
+      if(k<0){at.results.push(r);nr++;}else if((r.t||0)>(at.results[k].t||0)){at.results[k]=r;nr++;}});
+    if(!at.key.flat().some(Boolean)&&bt.key.flat().some(Boolean))at.key=bt.key;
+  });
+  if(!st.key.flat().some(Boolean)&&b.key.flat().some(Boolean)){st.key=b.key;}
+  save();renderSet();toast(`Adăugat: ${np} persoane, ${nt} teste noi, ${nr} rezultate.`,6000);
 }
 show('scan');
 </script>
