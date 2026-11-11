@@ -43,6 +43,8 @@ input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:
 .pt th:first-child,.pt td:first-child{position:sticky;left:0;background:var(--card);text-align:left;font-weight:600;z-index:1;min-width:84px;max-width:120px;white-space:normal}
 .dot.i{display:inline-block;width:10px;height:10px;margin-right:4px;vertical-align:middle}
 nav button{font-size:10.5px}
+.arow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.arow:last-child{border-bottom:0}
 .spark{margin:0 0 12px}
 .tip{display:none;font-size:13px;margin-top:2px}
 .tip.on{display:block}
@@ -509,20 +511,23 @@ function renderResult(){
 
 // ---------- results ----------
 let sortMode='time';
-function sortedResults(){
-  const a=R().slice(),gi=g=>{const i=GROUPS.indexOf(g);return i<0?99:i;};
-  if(sortMode==='name')a.sort((x,y)=>pname(x.idx).localeCompare(pname(y.idx)));
-  else if(sortMode==='group')a.sort((x,y)=>gi(st.people[x.idx-1].group)-gi(st.people[y.idx-1].group)||pname(x.idx).localeCompare(pname(y.idx)));
-  else if(sortMode==='score')a.sort((x,y)=>y.total-x.total);
-  else a.sort((x,y)=>x.t-y.t);
-  return a;
+function sortedResults(){ // scored results + named people without a result ({idx,absent:true}), in the chosen order
+  const gi=g=>{const i=GROUPS.indexOf(g);return i<0?99:i;};
+  const got=R().slice(),have=new Set(got.map(r=>r.idx));
+  const absent=st.people.map((p,i)=>({idx:i+1,absent:true})).filter(x=>st.people[x.idx-1].name&&!have.has(x.idx));
+  const nm=e=>pname(e.idx),grp=e=>gi(st.people[e.idx-1].group);
+  if(sortMode==='list')return got.concat(absent).sort((x,y)=>x.idx-y.idx);
+  if(sortMode==='name')return got.concat(absent).sort((x,y)=>nm(x).localeCompare(nm(y)));
+  if(sortMode==='group')return got.concat(absent).sort((x,y)=>grp(x)-grp(y)||nm(x).localeCompare(nm(y)));
+  if(sortMode==='score')return got.sort((x,y)=>y.total-x.total).concat(absent);
+  return got.sort((x,y)=>x.t-y.t).concat(absent);
 }
 function shareText(){
   const s=st.settings,lines=[`*${s.title}*`];let lastG=null;
   for(const e of sortedResults()){
     const g=st.people[e.idx-1].group||'';
     if(sortMode==='group'&&g!==lastG){lines.push('','*'+(g||'—')+'*');lastG=g;}
-    lines.push(`${pname(e.idx)}: ${e.total}/${maxTotal()}`);
+    lines.push(e.absent?`${pname(e.idx)}: absent`:`${pname(e.idx)}: ${e.total}/${maxTotal()}`);
   }
   return lines.join('\n');
 }
@@ -532,8 +537,7 @@ async function copyText(t){
   toast('Copiat. Lipește în WhatsApp.');
 }
 function renderList(){
-  const box=$('#list'),res=sortedResults(),done=new Set(R().map(r=>r.idx));
-  const missing=st.people.map((p,i)=>({p,i:i+1})).filter(x=>x.p.name&&!done.has(x.i));
+  const box=$('#list'),res=sortedResults();
   const act=activeTest();
   box.innerHTML=`<div class="card"><div class="mut">Test activ (aici se adaugă rezultatele noi)</div>
     <select id="tsel">${st.tests.slice().sort((a,b)=>a.date-b.date).map(t=>`<option value="${t.id}" ${act&&act.id===t.id?'selected':''}>${esc(t.title)} · ${fmtDate(t.date)} · ${t.results.length} rezultate</option>`).join('')}${act?'':`<option value="" selected>${esc(st.settings.title)} · test nou</option>`}<option value="__new">➕ Test nou…</option></select>
@@ -541,13 +545,12 @@ function renderList(){
     <input type="date" id="tdate" value="${dstr(act?act.date:(st.draftDate||Date.now()))}">
     <div class="mut" style="margin-top:6px">Testele sunt legate de titlu + capitole: dacă le pui la fel ca la un test vechi, ești din nou în acel test.</div></div>
   <div class="card">
-    <select id="sort"><option value="time">Ordinea scanării</option><option value="name">După nume</option><option value="group">După grupă</option><option value="score">După scor</option></select>
+    <select id="sort"><option value="time">Ordinea scanării</option><option value="list">Ordinea din listă</option><option value="name">După nume</option><option value="group">După grupă</option><option value="score">După scor</option></select>
     <button class="btn" id="cp">Copiază pentru WhatsApp</button>
     ${navigator.share?'<button class="btn sec" id="sh">Trimite…</button>':''}
   </div>
-  <div class="card">${res.length?'<div class="mut" style="margin-bottom:4px">Atinge un rezultat ca să-l corectezi · trage-l spre stânga ca să-l ștergi</div>'+res.map(e=>`<div class="swipe" data-idx="${e.idx}"><div class="sbg">Șterge</div><div class="srow"><div><b>${esc(pname(e.idx))}</b> <span class="mut">${esc(st.people[e.idx-1].group)}</span><div class="mut">${e.scores.join(' / ')}${e.issues?' · '+e.issues+' neclare':''}</div></div><div class="row"><span class="dot" style="background:${scoreColor(e.total)}"></span><b>${e.total}/${maxTotal()}</b></div></div></div>`).join(''):'<div class="mut">Niciun rezultat încă.</div>'}</div>
-  ${missing.length?`<div class="card"><b>Încă nescanați (${missing.length})</b><div class="mut">${missing.map(x=>esc(x.p.name)).join(', ')}</div></div>`:''}
-  ${res.length?'<button class="btn sec" id="clr">Șterge toate rezultatele acestui test</button>':''}`;
+  <div class="card">${res.length?(R().length?'<div class="mut" style="margin-bottom:4px">Atinge un rezultat ca să-l corectezi · trage-l spre stânga ca să-l ștergi</div>':'<div class="mut" style="margin-bottom:4px">Niciun rezultat încă.</div>')+res.map(e=>e.absent?`<div class="arow"><div><b>${esc(pname(e.idx))}</b> <span class="mut">${esc(st.people[e.idx-1].group)}</span></div><div class="row"><span class="dot" style="background:var(--line)"></span><b class="mut">absent</b></div></div>`:`<div class="swipe" data-idx="${e.idx}"><div class="sbg">Șterge</div><div class="srow"><div><b>${esc(pname(e.idx))}</b> <span class="mut">${esc(st.people[e.idx-1].group)}</span><div class="mut">${e.scores.join(' / ')}${e.issues?' · '+e.issues+' neclare':''}</div></div><div class="row"><span class="dot" style="background:${scoreColor(e.total)}"></span><b>${e.total}/${maxTotal()}</b></div></div></div>`).join(''):'<div class="mut">Niciun rezultat încă.</div>'}</div>
+  ${R().length?'<button class="btn sec" id="clr">Șterge toate rezultatele acestui test</button>':''}`;
   $('#sort').value=sortMode;$('#sort').onchange=e=>{sortMode=e.target.value;renderList();};
   $('#cp').onclick=()=>copyText(shareText());
   if($('#sh'))$('#sh').onclick=()=>navigator.share({text:shareText()}).catch(()=>{});
