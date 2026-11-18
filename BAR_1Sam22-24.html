@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Barem 1 Samuel 22-24</title>
+<title>Barem activ</title>
 <style>
   body{font-family:system-ui,sans-serif;max-width:700px;margin:0 auto;padding:12px}
   .card{border:1px solid #ccc;border-radius:10px;padding:12px;margin:10px 0}
@@ -30,6 +30,7 @@ Când a fost adus de la turmă, David „era cu păr bălai, cu ochi frumoși ș
 
 AF | v.7 | F | 6
 Domnul i-a descoperit lui Samuel că El Se uită la ceea ce izbește ochii.
+> Și Domnul a zis lui Samuel: „Nu te uita la înfățișarea și înălțimea staturii lui, căci l-am lepădat. Domnul nu Se uită la ce se uită omul; omul se uită la înfățișare, dar Domnul Se uită la inimă.
 
 AF | v.22 | A | 8
 Saul a trimis vorbă lui Isai: „Te rog să lași pe David în slujba mea, căci a căpătat trecere înaintea mea.”
@@ -69,17 +70,19 @@ function parse(text) {
         const lines = q.split("\n");
         const [type, verse = "", answer = "", order = ""] =
           lines[0].split("|").map(s => s.trim());
-        const options = [], body = [];
+        const options = [], body = [], verseLines = [];
         lines.slice(1).forEach(l => {
           const m = l.match(/^([abc])\)\s*(.*)/i);
-          m ? options.push({ k: m[1].toLowerCase(), t: m[2] })
-            : body.push(l);
+          if (l.startsWith(">")) verseLines.push(l.slice(1).trim());
+          else if (m) options.push({ k: m[1].toLowerCase(), t: m[2] });
+          else body.push(l);
         });
         if (type === "AF")
           options.push({ k: "a", t: "Adevărat" }, { k: "f", t: "Fals" });
         const o = parseInt(order);
         return {
           type, verse,
+          verseText: verseLines.join(" "),
           answer: answer.toLowerCase(),
           order: isNaN(o) ? null : o,
           text: body.join("<br>"),
@@ -119,7 +122,7 @@ function render(chapters, root) {
       btn.textContent = "Arată răspunsul";
       const v = document.createElement("div");
       v.className = "verse";
-      v.textContent = q.verse;
+      v.innerHTML = `<b>${q.verse}</b>` + (q.verseText ? ` — ${q.verseText}` : "");
       btn.onclick = () => {
         const show = !btn.dataset.on;
         btn.dataset.on = show ? "1" : "";
