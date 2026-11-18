@@ -9,8 +9,11 @@
   .card{border:1px solid #ccc;border-radius:10px;padding:12px;margin:10px 0}
   .nota{background:#fff8dc}
   .opt{padding:4px 8px;margin:3px 0;border-radius:6px}
-  .opt.correct{background:#c8f7c5;font-weight:bold}
-  .verse{color:#666;font-size:.85em;margin-top:6px;display:none}
+  .opt.correct{background:#b6f2b0;font-weight:bold;font-size:1.15em;
+    border:2px solid #2e9e2e;padding:8px 10px}
+  .opt.correct::before{content:"✔ ";color:#1c7a1c}
+  .verse{background:#eef6ff;border-left:5px solid #2a6fdb;border-radius:6px;
+    color:#123;font-size:1.05em;margin-top:10px;padding:10px 12px;display:none}
   button{margin-top:8px;padding:6px 12px;font-size:1em}
 </style>
 </head>
@@ -30,7 +33,7 @@ Când a fost adus de la turmă, David „era cu păr bălai, cu ochi frumoși ș
 
 AF | v.7 | F | 6
 Domnul i-a descoperit lui Samuel că El Se uită la ceea ce izbește ochii.
-> Domnul nu Se uită la ce se uită omul; omul se uită la înfățișare, dar Domnul Se uită la inimă.
+> Domnul nu Se uită la ce se uită omul; *omul se uită la ce izbește ochii*, dar Domnul se uită _la inimă_.
 
 AF | v.22 | A | 8
 Saul a trimis vorbă lui Isai: „Te rog să lași pe David în slujba mea, căci a căpătat trecere înaintea mea.”
@@ -61,6 +64,13 @@ a) tare
 b) viu
 c) mare
 `;
+
+// *bold* și _italic_ (nu afectează liniile de completat "_____")
+function fmt(s) {
+  return s
+    .replace(/(?<![*\w])\*([^*\s][^*]*?)\*(?![*\w])/g, "<b>$1</b>")
+    .replace(/(?<![_\w])_([^_\s][^_]*?)_(?![_\w])/g, "<i>$1</i>");
+}
 
 function parse(text) {
   return text.split(/^# /m).filter(s => s.trim()).map(block => {
@@ -105,24 +115,24 @@ function render(chapters, root) {
       const card = document.createElement("div");
       card.className = "card" + (q.type === "NOTA" ? " nota" : "");
       if (q.type === "NOTA") {
-        card.innerHTML = q.text;
+        card.innerHTML = fmt(q.text);
         root.appendChild(card);
         return;
       }
       n++;
-      card.innerHTML = `<b>${q.order ?? n}.</b> ${q.text}`;
+      card.innerHTML = `<b>${q.order ?? n}.</b> ${fmt(q.text)}`;
       q.options.forEach(o => {
         const d = document.createElement("div");
         d.className = "opt";
         d.dataset.k = o.k;
-        d.textContent = (q.type === "ABC" ? o.k + ") " : "") + o.t;
+        d.innerHTML = (q.type === "ABC" ? o.k + ") " : "") + fmt(o.t);
         card.appendChild(d);
       });
       const btn = document.createElement("button");
       btn.textContent = "Arată răspunsul";
       const v = document.createElement("div");
       v.className = "verse";
-      v.innerHTML = `<b>${q.verse}</b>` + (q.verseText ? ` — ${q.verseText}` : "");
+      v.innerHTML = `<b>${q.verse}</b>` + (q.verseText ? ` — ${fmt(q.verseText)}` : "");
       btn.onclick = () => {
         const show = !btn.dataset.on;
         btn.dataset.on = show ? "1" : "";
