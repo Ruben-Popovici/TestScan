@@ -4,19 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Barem activ</title>
-  <h1>1 Samuel 22-24</h1>
 <style>
   body{font-family:system-ui,sans-serif;max-width:700px;margin:0 auto;padding:12px}
   .card{border:1px solid #ccc;border-radius:10px;padding:12px;margin:10px 0}
   .nota{background:#fff8dc}
-  .opt{padding:4px 8px;margin:3px 0;border-radius:6px}
+  .opt{padding:4px 8px;margin:3px 0;border-radius:6px;border:2px solid transparent}
+  .opt.wrong{background:#ffd9d9;border-color:#d62828;color:#8a1111}
+  .opt.correct.false{background:#ffd9d9;border-color:#d62828}
+  .opt.correct.false::before{color:#d62828}
   .opt.correct{background:#b6f2b0;font-weight:bold;font-size:1.15em;
     border:2px solid #2e9e2e;padding:8px 10px}
   .opt.correct::before{content:"✔ ";color:#1c7a1c}
   .verse{background:#eef6ff;border-left:5px solid #2a6fdb;border-radius:6px;
     color:#123;font-size:1.05em;margin-top:10px;padding:10px 12px;display:none}
   button{margin-top:8px;padding:6px 12px;font-size:1em}
-  a{color:#c4302b;font-weight:bold}
+  a{color:#1a5fd0;font-weight:bold}
 </style>
 </head>
 <body>
@@ -28,7 +30,7 @@
 // TIP = AF, ABC sau NOTA. Capitol nou = linie care începe cu "# ".
 // Întrebările se separă printr-o linie goală.
 const text = `
-NOTA | | | 0
+NOTA | v.8-17 | | 0
 1 Samuel 19:8-17. : 
 David, scăpat de Mical
 [Apasă aici să vezi un video!](https://youtu.be/N0cGcOuFOUc)
@@ -41,7 +43,7 @@ s-au strâns la el şi el a ajuns căpetenia lor. Astfel, s-au unit cu el aproap
 
 AF | v.18,20 | F | x
 Doeg a omorât pe toți cei ce purtau efodul de in.
-> 18. Atunci, împăratul a zis lui Doeg: „Întoarce-te şi loveşte pe preoţi.” Şi Doeg, Edomitul, s-a întors şi a lovit pe preoţi; a omorât în ziua aceea optzeci şi cinci de oameni care purtau efodul de in. 20.Un fiu al lui Ahimelec, fiul lui Ahitub, a scăpat. Numele lui era Abiatar. A fugit la David
+> 18. Atunci, împăratul a zis lui Doeg: „Întoarce-te şi loveşte pe preoţi.” Şi Doeg, Edomitul, s-a întors şi a lovit pe preoţi; a omorât în ziua aceea optzeci şi cinci de oameni care purtau efodul de in. 20. *Un fiu al lui Ahimelec, fiul lui Ahitub, a scăpat*. Numele lui era Abiatar. A fugit la David
 
 AF | v.7 | F | x
 Saul le-a zis slujitorilor săi: „Ascultați, beniamiți! Vă va da fiul lui Isai la toți ogoare și oi?”
@@ -56,7 +58,7 @@ Atunci, împăratul a zis lui Doeg: „Întoarce-te şi loveşte pe Ahimelec.”
 
 ABC | v.18 | b | x
 Câți oameni ar fi omorât Doeg, Edomitul, dacă unul dintre iei n-ar fi scăpat?
-> Şi Doeg, Edomitul, s-a întors şi a lovit pe preoţi; a omorât în ziua aceea *optzeci şi cinci de oameni* care purtau efodul de in.
+> Şi Doeg, Edomitul, s-a întors şi a lovit pe preoţi; a omorât în ziua aceea *optzeci şi cinci de oameni* care purtau efodul de in. 20. *Un fiu al lui Ahimelec, fiul lui Ahitub, a scăpat*. Numele lui era Abiatar. A fugit la David. _85 + 1 = 86_.
 a) 85 de oameni.
 b) 86 de oameni.
 c) 87 de oameni.
@@ -82,10 +84,11 @@ c) că va ajuta pe Saul să caute pe David.
 
 ABC | v.5 | a | x
 ______ a spus lui David să se ducă în țara ______?
-> Prorocul Gad a zis lui David: „Nu şedea în cetăţuie, ci du-te şi intră în ţara lui Iuda.” Şi David a plecat şi a ajuns la pădurea Heret.
+> *Prorocul Gad* a zis lui David: „Nu şedea în cetăţuie, ci du-te şi intră în *ţara lui Iuda*.” Şi David a plecat şi a ajuns la pădurea Heret.
 a) Prorocul Gad, lui Iuda
 b) Preotul Ahimelec, Moabului
 c) Abiatar, filistenilor
+
 `;
 
 // *bold* și _italic_ (nu afectează liniile de completat "_____")
@@ -171,8 +174,14 @@ function render(chapters, root) {
         btn.dataset.on = show ? "1" : "";
         btn.textContent = show ? "Ascunde răspunsul" : "Arată răspunsul";
         v.style.display = show ? "block" : "none";
-        card.querySelectorAll(".opt").forEach(o =>
-          o.classList.toggle("correct", show && o.dataset.k === q.answer));
+        card.querySelectorAll(".opt").forEach(o => {
+          const ok = o.dataset.k === q.answer;
+          o.classList.toggle("correct", show && ok);
+          // A/F: când răspunsul e Fals, bordura e roșie
+          o.classList.toggle("false", show && ok && q.type === "AF" && q.answer === "f");
+          // ABC: cele 2 variante greșite apar în roșu
+          o.classList.toggle("wrong", show && !ok && q.type === "ABC");
+        });
       };
       card.append(btn, v);
       root.appendChild(card);
