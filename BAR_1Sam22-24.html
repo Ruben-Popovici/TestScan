@@ -15,10 +15,11 @@
   .verse{background:#eef6ff;border-left:5px solid #2a6fdb;border-radius:6px;
     color:#123;font-size:1.05em;margin-top:10px;padding:10px 12px;display:none}
   button{margin-top:8px;padding:6px 12px;font-size:1em}
+  a{color:#c4302b;font-weight:bold}
 </style>
 </head>
 <body>
-<H1>1 Samuel 22-24</H1>
+
 <div id="myText"></div>
 
 <script>
@@ -33,7 +34,7 @@ Când a fost adus de la turmă, David „era cu păr bălai, cu ochi frumoși ș
 
 AF | v.7 | F | 6
 Domnul i-a descoperit lui Samuel că El Se uită la ceea ce izbește ochii.
-> Domnul nu Se uită la ce se uită omul; *omul se uită la ce izbește ochii*, dar Domnul se uită _la inimă_.
+> Domnul nu Se uită la ce se uită omul; *omul se uită la ce izbește ochii*, dar Domnul se uită _la inimă_. [Ascultă pe YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) sau https://youtu.be/dQw4w9WgXcQ
 
 AF | v.22 | A | 8
 Saul a trimis vorbă lui Isai: „Te rog să lași pe David în slujba mea, căci a căpătat trecere înaintea mea.”
@@ -54,6 +55,7 @@ c) israelitul
 
 NOTA | | | 0
 Curiozitate: Goliat avea 3,12 m înălțime (șase coți + o palmă).
+[text](https://youtu.be/N0cGcOuFOUc)
 
 AF | v.43 | F | 1
 Goliat i-a zis lui David: „Ce! sunt urs, de vii la mine cu toiege?”
@@ -66,10 +68,20 @@ c) mare
 `;
 
 // *bold* și _italic_ (nu afectează liniile de completat "_____")
+// + linkuri: [text](https://...) sau un link simplu https://...
 function fmt(s) {
-  return s
+  const links = [];
+  const keep = h => "\u0001" + (links.push(h) - 1) + "\u0002";
+  const a = (u, t) =>
+    keep(`<a href="${u}" target="_blank" rel="noopener noreferrer">${t}</a>`);
+  // linkurile se scot întâi, ca "_" din URL să nu devină italic
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, t, u) => a(u, t));
+  s = s.replace(/(?<![\w"=\u0001])(https?:\/\/[^\s<)]+)/g, (m, u) =>
+    a(u, /youtu\.?be/.test(u) ? "▶ Video YouTube" : u));
+  s = s
     .replace(/(?<![*\w])\*([^*\s][^*]*?)\*(?![*\w])/g, "<b>$1</b>")
     .replace(/(?<![_\w])_([^_\s][^_]*?)_(?![_\w])/g, "<i>$1</i>");
+  return s.replace(/\u0001(\d+)\u0002/g, (m, i) => links[i]);
 }
 
 function parse(text) {
