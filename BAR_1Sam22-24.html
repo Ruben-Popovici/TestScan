@@ -26,6 +26,10 @@
   #admin input{padding:6px;font-size:1em;margin-right:6px}
   #admin textarea{width:100%;box-sizing:border-box;font-family:monospace;font-size:1.1em;margin-top:8px}
   #admin code{font-size:1.15em}
+  .scorebar{position:sticky;top:0;z-index:5;background:#fff;border:2px solid #2a6fdb;
+    border-radius:10px;padding:8px 12px;margin:8px 0;font-weight:bold}
+  .scorebar.final{background:#eef6ff;font-size:1.15em}
+  .scorebar button{margin-top:0}
 </style>
 </head>
 <body>
@@ -272,11 +276,46 @@ function parse(text) {
   });
 }
 
+// ===== SCOR (doar în fila Test) =====
+// Scor = BASE + POINTS × răspunsuri corecte → cu 30 de întrebări: de la 10 la 100.
+// Capitolele cu "recapitulare" în titlu nu se punctează.
+const BASE = 10, POINTS = 3;
+const scored = ch => !/recapitulare/i.test(ch.title);
+const score = { correct: 0, answered: 0, total: 0 };
+let scoreBar = null, scoreTxt = null;
+
+function updateScore() {
+  if (!scoreBar) return;
+  const now = BASE + POINTS * score.correct;
+  const max = BASE + POINTS * score.total;
+  const finished = score.total > 0 && score.answered === score.total;
+  scoreBar.classList.toggle("final", finished);
+  scoreTxt.textContent = (finished ? "Scor final: " : "Scor curent: ") + now + " / " + max +
+    "  ·  Răspunsuri: " + score.answered + "/" + score.total +
+    "  ·  Corecte: " + score.correct;
+}
+
 function render(chapters, root, mode = "barem") {
   root.innerHTML = "";
+  if (mode === "test") {
+    score.correct = 0;
+    score.answered = 0;
+    score.total = chapters.reduce((t, ch) =>
+      t + (scored(ch) ? ch.questions.filter(q => q.type !== "NOTA").length : 0), 0);
+    scoreBar = document.createElement("div");
+    scoreBar.className = "scorebar";
+    scoreTxt = document.createElement("span");
+    const again = document.createElement("button");
+    again.textContent = "Reia testul";
+    again.style.marginLeft = "12px";
+    again.onclick = () => { render(chapters, root, "test"); window.scrollTo(0, 0); };
+    scoreBar.append(scoreTxt, again);
+    root.appendChild(scoreBar);
+    updateScore();
+  }
   chapters.forEach(ch => {
     const h = document.createElement("h2");
-    h.textContent = ch.title;
+    h.textContent = ch.title + (mode === "test" && !scored(ch) ? " — nepunctat" : "");
     root.appendChild(h);
     let n = 0;
     ch.questions.forEach(q => {
@@ -303,26 +342,22 @@ function render(chapters, root, mode = "barem") {
       if (mode === "test") {
         // TEST: apeși o variantă; corect = verde, greșit = roșu
         const opts = [...card.querySelectorAll(".opt")];
-        const reset = document.createElement("button");
-        reset.textContent = "Încearcă din nou";
-        reset.style.display = "none";
+        const counts = scored(ch);
         let done = false;
         opts.forEach(d => d.onclick = () => {
-          if (done) return;
+          if (done) return;          // un singur răspuns per întrebare
           done = true;
           const good = d.dataset.k === q.answer;
           d.classList.add(good ? "correct" : "wrong");
           if (!good) opts.find(x => x.dataset.k === q.answer).classList.add("correct");
           v.style.display = "block";
-          reset.style.display = "";
+          if (counts) {
+            score.answered++;
+            if (good) score.correct++;
+            updateScore();
+          }
         });
-        reset.onclick = () => {
-          done = false;
-          opts.forEach(x => x.classList.remove("correct", "wrong"));
-          v.style.display = "none";
-          reset.style.display = "none";
-        };
-        card.append(reset, v);
+        card.append(v);
         root.appendChild(card);
         return;
       }
@@ -355,7 +390,7 @@ render(chapters, document.getElementById("test"), "test");
 
 // ================= ADMIN =================
 // Codul tău pentru fila Admin: schimbă-l aici.
-const ADMIN_CODE = "schimba-ma";
+const ADMIN_CODE = "260609";
 
 // ex. "AFFAA bacac": A/F cu majuscule, apoi a/b/c cu litere mici, în ordinea afișată
 function keyOf(ch) {
