@@ -1,1 +1,275 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Barem activ</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:700px;margin:0 auto;padding:12px}
+  .card{border:1px solid #ccc;border-radius:10px;padding:12px;margin:10px 0}
+  .nota{background:#fff8dc}
+  .opt{padding:4px 8px;margin:3px 0;border-radius:6px;border:2px solid transparent}
+  .opt.wrong{background:#ffd9d9;border-color:#d62828;color:#8a1111}
+  .opt.correct.false{background:#ffd9d9;border-color:#d62828}
+  .opt.correct.false::before{color:#d62828}
+  .opt.correct{background:#b6f2b0;font-weight:bold;font-size:1.15em;
+    border:2px solid #2e9e2e;padding:8px 10px}
+  .opt.correct::before{content:"✔ ";color:#1c7a1c}
+  .verse{background:#eef6ff;border-left:5px solid #2a6fdb;border-radius:6px;
+    color:#123;font-size:1.05em;margin-top:10px;padding:10px 12px;display:none}
+  button{margin-top:8px;padding:6px 12px;font-size:1em}
+  a{color:#1a5fd0;font-weight:bold}
+  .tab{margin:0 6px 0 0;border:1px solid #2a6fdb;background:#fff;color:#2a6fdb;border-radius:8px}
+  .tab.active{background:#2a6fdb;color:#fff}
+  #admin input{padding:6px;font-size:1em;margin-right:6px}
+  #admin textarea{width:100%;box-sizing:border-box;font-family:monospace;font-size:1.1em;margin-top:8px}
+  #admin code{font-size:1.15em}
+</style>
+</head>
+<body>
 
+<div id="tabs">
+  <button id="tabBarem" class="tab active">Barem</button>
+  <button id="tabAdmin" class="tab">Admin</button>
+</div>
+
+<div id="myText"></div>
+<div id="admin" style="display:none"></div>
+
+<script>
+// Format: TIP | verset | răspuns | ordine
+// TIP = AF, ABC sau NOTA. Capitol nou = linie care începe cu "# ".
+// Întrebările se separă printr-o linie goală.
+const text = `
+# Capitolul 16
+
+AF | v.12 | A | 1
+Când a fost adus de la turmă, David „era cu păr bălai, cu ochi frumoși și față frumoasă”.
+
+AF | v.7 | F | 6
+Domnul i-a descoperit lui Samuel că El Se uită la ceea ce izbește ochii.
+> Domnul nu Se uită la ce se uită omul; *omul se uită la ce izbește ochii*, dar Domnul se uită _la inimă_. [Ascultă pe YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) sau https://youtu.be/dQw4w9WgXcQ
+
+AF | v.22 | A | 8
+Saul a trimis vorbă lui Isai: „Te rog să lași pe David în slujba mea, căci a căpătat trecere înaintea mea.”
+
+ABC | v.10 | c | 3
+Câți fii ai lui Isai au trecut pe dinaintea lui Samuel, fără să fie aleși de Domnul?
+a) Opt
+b) Zece
+c) Șapte
+
+ABC | v.1 | b | 5
+„Umple-ţi cornul cu untdelemn şi du-te; te voi trimite la Isai, _____ , căci pe unul din fiii lui Mi l-am ales ca împărat.”
+a) amonitul
+b) betleemitul
+c) israelitul
+
+# Capitolul 17
+
+NOTA | | | 0
+Curiozitate: Goliat avea 3,12 m înălțime (șase coți + o palmă).
+
+AF | v.43 | F | 1
+Goliat i-a zis lui David: „Ce! sunt urs, de vii la mine cu toiege?”
+
+ABC | v.26 | b | 1
+David a întrebat: „Cine este filisteanul acesta, ca să ocărască oștirea Dumnezeului celui _____?”
+a) tare
+b) viu
+c) mare
+`;
+
+// *bold* și _italic_ (nu afectează liniile de completat "_____")
+// + linkuri: [text](https://...) sau un link simplu https://...
+function fmt(s) {
+  const links = [];
+  const keep = h => "\u0001" + (links.push(h) - 1) + "\u0002";
+  const a = (u, t) =>
+    keep(`<a href="${u}" target="_blank" rel="noopener noreferrer">${t}</a>`);
+  // linkurile se scot întâi, ca "_" din URL să nu devină italic
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, t, u) => a(u, t));
+  s = s.replace(/(?<![\w"=\u0001])(https?:\/\/[^\s<)]+)/g, (m, u) =>
+    a(u, /youtu\.?be/.test(u) ? "▶ Video YouTube" : u));
+  s = s
+    .replace(/(?<![*\w])\*([^*\s][^*]*?)\*(?![*\w])/g, "<b>$1</b>")
+    .replace(/(?<![_\w])_([^_\s][^_]*?)_(?![_\w])/g, "<i>$1</i>");
+  return s.replace(/\u0001(\d+)\u0002/g, (m, i) => links[i]);
+}
+
+function parse(text) {
+  return text.split(/^# /m).filter(s => s.trim()).map(block => {
+    const [title, ...rest] = block.split("\n");
+    const questions = rest.join("\n").split(/\n\s*\n/)
+      .map(q => q.trim()).filter(Boolean).map(q => {
+        const lines = q.split("\n");
+        const [type, verse = "", answer = "", order = ""] =
+          lines[0].split("|").map(s => s.trim());
+        const options = [], body = [], verseLines = [];
+        lines.slice(1).forEach(l => {
+          const m = l.match(/^([abc])\)\s*(.*)/i);
+          if (l.startsWith(">")) verseLines.push(l.slice(1).trim());
+          else if (m) options.push({ k: m[1].toLowerCase(), t: m[2] });
+          else body.push(l);
+        });
+        if (type === "AF")
+          options.push({ k: "a", t: "Adevărat" }, { k: "f", t: "Fals" });
+        const o = parseInt(order);
+        return {
+          type, verse,
+          verseText: verseLines.join(" "),
+          answer: answer.toLowerCase(),
+          order: isNaN(o) ? null : o,
+          text: body.join("<br>"),
+          options
+        };
+      })
+      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+    return { title: title.trim(), questions };
+  });
+}
+
+function render(chapters, root) {
+  root.innerHTML = "";
+  chapters.forEach(ch => {
+    const h = document.createElement("h2");
+    h.textContent = ch.title;
+    root.appendChild(h);
+    let n = 0;
+    ch.questions.forEach(q => {
+      const card = document.createElement("div");
+      card.className = "card" + (q.type === "NOTA" ? " nota" : "");
+      if (q.type === "NOTA") {
+        card.innerHTML = fmt(q.text);
+        root.appendChild(card);
+        return;
+      }
+      n++;
+      card.innerHTML = `<b>${q.order ?? n}.</b> ${fmt(q.text)}`;
+      q.options.forEach(o => {
+        const d = document.createElement("div");
+        d.className = "opt";
+        d.dataset.k = o.k;
+        d.innerHTML = (q.type === "ABC" ? o.k + ") " : "") + fmt(o.t);
+        card.appendChild(d);
+      });
+      const btn = document.createElement("button");
+      btn.textContent = "Arată răspunsul";
+      const v = document.createElement("div");
+      v.className = "verse";
+      v.innerHTML = `<b>${q.verse}</b>` + (q.verseText ? ` — ${fmt(q.verseText)}` : "");
+      btn.onclick = () => {
+        const show = !btn.dataset.on;
+        btn.dataset.on = show ? "1" : "";
+        btn.textContent = show ? "Ascunde răspunsul" : "Arată răspunsul";
+        v.style.display = show ? "block" : "none";
+        card.querySelectorAll(".opt").forEach(o => {
+          const ok = o.dataset.k === q.answer;
+          o.classList.toggle("correct", show && ok);
+          // A/F: când răspunsul e Fals, bordura e roșie
+          o.classList.toggle("false", show && ok && q.type === "AF" && q.answer === "f");
+          // ABC: cele 2 variante greșite apar în roșu
+          o.classList.toggle("wrong", show && !ok && q.type === "ABC");
+        });
+      };
+      card.append(btn, v);
+      root.appendChild(card);
+    });
+  });
+}
+
+const chapters = parse(text);
+render(chapters, document.getElementById("myText"));
+
+// ================= ADMIN =================
+// Hash-ul codului tău secret. Gol = prima configurare (vezi panoul Admin).
+const ADMIN_HASH = "260609";
+
+async function sha256(s) {
+  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+
+// ex. "AFFAA bacac": A/F cu majuscule, apoi a/b/c cu litere mici, în ordinea afișată
+function keyOf(ch) {
+  const qs = ch.questions.filter(q => q.type !== "NOTA");
+  const af = qs.filter(q => q.type === "AF").map(q => q.answer.toUpperCase()).join("");
+  const abc = qs.filter(q => q.type === "ABC").map(q => q.answer.toLowerCase()).join("");
+  return (af + " " + abc).trim();
+}
+
+function copyText(t, btn) {
+  const old = btn.textContent;
+  const done = () => { btn.textContent = "Copiat ✔"; setTimeout(() => btn.textContent = old, 1500); };
+  const fallback = () => {
+    const ta = document.createElement("textarea");
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove(); done();
+  };
+  if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, fallback);
+  else fallback();
+}
+
+const adminBox = document.getElementById("admin");
+
+function showKey() {
+  adminBox.innerHTML = "";
+  const lines = chapters.map(keyOf);
+  const full = "BAREM COMPLET:\n" + lines.join("\n");
+  const ta = document.createElement("textarea");
+  ta.readOnly = true; ta.rows = lines.length + 1; ta.value = full;
+  const all = document.createElement("button");
+  all.textContent = "Copiază tot";
+  all.onclick = () => copyText(full, all);
+  adminBox.append(ta, all);
+  chapters.forEach((ch, i) => {
+    const row = document.createElement("div");
+    row.className = "card";
+    row.innerHTML = `<b>${ch.title}</b>: <code>${lines[i]}</code> `;
+    const b = document.createElement("button");
+    b.textContent = "Copiază";
+    b.onclick = () => copyText(lines[i], b);
+    row.appendChild(b);
+    adminBox.appendChild(row);
+  });
+}
+
+function buildAdmin() {
+  adminBox.innerHTML = "";
+  const inp = document.createElement("input");
+  inp.type = "password";
+  inp.placeholder = ADMIN_HASH ? "Codul tău" : "Alege un cod nou";
+  const go = document.createElement("button");
+  go.textContent = ADMIN_HASH ? "Deschide" : "Generează hash";
+  const msg = document.createElement("div");
+  msg.style.marginTop = "10px";
+  go.onclick = async () => {
+    if (!inp.value) return;
+    let h;
+    try { h = await sha256(inp.value); }
+    catch { msg.textContent = "Browserul nu permite criptarea aici (folosește https sau localhost)."; return; }
+    if (!ADMIN_HASH) {
+      msg.innerHTML = `Pune în fișier, în loc de <code>const ADMIN_HASH = "";</code>:<br><code style="word-break:break-all">const ADMIN_HASH = "${h}";</code>`;
+    } else if (h === ADMIN_HASH) {
+      showKey();
+    } else {
+      msg.textContent = "Cod greșit.";
+    }
+  };
+  inp.onkeydown = e => { if (e.key === "Enter") go.click(); };
+  adminBox.append(inp, go, msg);
+  inp.focus();
+}
+
+function openTab(which) {
+  document.getElementById("myText").style.display = which === "barem" ? "" : "none";
+  adminBox.style.display = which === "admin" ? "" : "none";
+  document.getElementById("tabBarem").classList.toggle("active", which === "barem");
+  document.getElementById("tabAdmin").classList.toggle("active", which === "admin");
+  if (which === "admin") buildAdmin();
+}
+document.getElementById("tabBarem").onclick = () => openTab("barem");
+document.getElementById("tabAdmin").onclick = () => openTab("admin");
+</script>
+</body>
+</html>
