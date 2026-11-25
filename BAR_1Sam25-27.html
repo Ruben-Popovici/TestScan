@@ -21,19 +21,27 @@
   a{color:#1a5fd0;font-weight:bold}
   .tab{margin:0 6px 0 0;border:1px solid #2a6fdb;background:#fff;color:#2a6fdb;border-radius:8px}
   .tab.active{background:#2a6fdb;color:#fff}
+  .opt.pick{cursor:pointer;border-color:#ddd}
+  .opt.pick:not(.correct):not(.wrong):hover{background:#f0f4ff}
   #admin input{padding:6px;font-size:1em;margin-right:6px}
   #admin textarea{width:100%;box-sizing:border-box;font-family:monospace;font-size:1.1em;margin-top:8px}
   #admin code{font-size:1.15em}
+  .scorebar{position:sticky;top:0;z-index:5;background:#fff;border:2px solid #2a6fdb;
+    border-radius:10px;padding:8px 12px;margin:8px 0;font-weight:bold}
+  .scorebar.final{background:#eef6ff;font-size:1.15em}
+  .scorebar button{margin-top:0}
 </style>
 </head>
 <body>
 
 <div id="tabs">
   <button id="tabBarem" class="tab active">Barem</button>
+  <button id="tabTest" class="tab">Test</button>
   <button id="tabAdmin" class="tab">Admin</button>
 </div>
 
 <div id="myText"></div>
+<div id="test" style="display:none"></div>
 <div id="admin" style="display:none"></div>
 
 <script>
@@ -41,43 +49,182 @@
 // TIP = AF, ABC sau NOTA. Capitol nou = linie care începe cu "# ".
 // Întrebările se separă printr-o linie goală.
 const text = `
-# Capitolul 16
 
-AF | v.12 | A | 1
-Când a fost adus de la tur David „era cu păr bălai, cu ochi frumoși și față frumoasă”.
+# Capitolul 22
 
-AF | v.7 | F | 6
-Domnul i-a descoperit lui Samuel că El Se uită la ceea ce izbește ochii.
-> Domnul nu Se uită la ce se uită omul; *omul se uită la ce izbește ochii*, dar Domnul se uită _la inimă_. [Ascultă pe YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) sau https://youtu.be/dQw4w9WgXcQ
+AF | v.2 | F | 1
+s-au strâns la el şi el a ajuns căpetenia lor. Astfel, s-au unit cu el aproape cinci sute de oameni.
+> s-au strâns la el şi el a ajuns căpetenia lor. Astfel, s-au unit cu el aproape *patru* sute de oameni.
 
-AF | v.22 | A | 8
-Saul a trimis vorbă lui Isai: „Te rog să lași pe David în slujba mea, căci a căpătat trecere înaintea mea.”
+AF | v.18,20 | F | 2
+Doeg a omorât pe toți cei ce purtau efodul de in.
+> 18. Atunci, împăratul a zis lui Doeg: „Întoarce-te şi loveşte pe preoţi.” Şi Doeg, Edomitul, s-a întors şi a lovit pe preoţi; a omorât în ziua aceea optzeci şi cinci de oameni care purtau efodul de in. 20. *Un fiu al lui Ahimelec, fiul lui Ahitub, a scăpat*. Numele lui era Abiatar. A fugit la David
 
-ABC | v.10 | c | 3
-Câți fii ai lui Isai au trecut pe dinaintea lui Samuel, fără să fie aleși de Domnul?
-a) Opt
-b) Zece
-c) Șapte
+AF | v.7 | F | 3
+Saul le-a zis slujitorilor săi: „Ascultați, beniamiți! Vă va da fiul lui Isai la toți ogoare și oi?”
+> ...ogoare și *vii*?
 
-ABC | v.1 | b | 5
-„Umple-ţi cornul cu untdelemn şi du-te; te voi trimite la Isai, _____ , căci pe unul din fiii lui Mi l-am ales ca împărat.”
-a) amonitul
-b) betleemitul
-c) israelitul
+AF | v.14 | A | 4
+Ahimelec i-a vorbit împăratului despre „credinciosul David, ginerele împăratului”.
 
-# Capitolul 17
+AF | v.18 | F | 5
+Atunci, împăratul a zis lui Doeg: „Întoarce-te şi loveşte pe Ahimelec.” 
+> Atunci, împăratul a zis lui Doeg: „Întoarce-te şi loveşte pe *preoţi*.”
 
-NOTA | | | 0
-Curiozitate: Goliat avea 3,12 m înălțime (șase coți + o palmă).
+ABC | v.18 | b | 6
+Câți oameni ar fi omorât Doeg, Edomitul, dacă niciunul dintre ei n-ar fi scăpat?
+> Şi Doeg, Edomitul, s-a întors şi a lovit pe preoţi; a omorât în ziua aceea *optzeci şi cinci de oameni* care purtau efodul de in. 20. *Un fiu al lui Ahimelec, fiul lui Ahitub, a scăpat*. Numele lui era Abiatar. A fugit la David. _85 + 1 = 86_.
+a) 85 de oameni.
+b) 86 de oameni.
+c) 87 de oameni.
 
-AF | v.43 | F | 1
-Goliat i-a zis lui David: „Ce! sunt urs, de vii la mine cu toiege?”
+ABC | v.19 | c | 7
+Care cetate a trecut sub ascuțișul sabiei?
+a) Rama
+b) Cheila
+c) Nob
 
-ABC | v.26 | b | 1
-David a întrebat: „Cine este filisteanul acesta, ca să ocărască oștirea Dumnezeului celui _____?”
-a) tare
-b) viu
-c) mare
+ABC | v.22 | b | 8
+David i-a zis lui Abiatar: „Eu sunt pricina morții tuturor _____ din casa tatălui tău.”
+a) robilor
+b) sufletelor
+c) fiilor
+
+ABC | v.22 | b | 9
+La ce s-a găndit David despre Doeg, Edomitul?
+> David a zis lui Abiatar: „M-am gândit chiar în ziua aceea că Doeg, Edomitul, fiind acolo, *nu se putea să nu spună lui Saul*. Eu sunt pricina morţii tuturor sufletelor din casa tatălui tău.
+a) că va asculta de Saul.
+b) că va spune lui Saul despre David.
+c) că va ajuta pe Saul să caute pe David.
+
+ABC | v.5 | a | 10
+______ a spus lui David să se ducă în țara ______?
+> *Prorocul Gad* a zis lui David: „Nu şedea în cetăţuie, ci du-te şi intră în *ţara lui Iuda*.” Şi David a plecat şi a ajuns la pădurea Heret.
+a) Prorocul Gad, lui Iuda.
+b) Preotul Ahimelec, Moabului
+c) Abiatar, filistenilor.
+
+# Capitolul 23 
+
+AF | v.28 | A | 1
+Sela-Hamahlecot înseamnă „Stânca împărţirii”.
+> 28. Saul a încetat să urmărească pe David şi s-a întors să iasă înaintea filistenilor. De aceea, locul acela s-a numit Sela-Hamahlecot (Stânca împărţirii).
+
+AF | v.16 | A | 2
+Ionatan a întărit încrederea lui David în Dumnezeu.
+> Atunci, Ionatan, fiul lui Saul, s-a sculat şi s-a dus la David în pădure. El i-a întărit încrederea în Dumnezeu 
+
+AF | v.17 | F | 3
+Tu vei domni peste Israel şi eu voi fi al treilea după tine; tatăl meu Saul ştie şi el bine lucrul acesta.”
+> Tu vei domni peste Israel şi eu voi fi *al doilea* după tine
+
+AF | v.22 | F | 4
+Duceţi-vă, vă rog, de mai cercetaţi, ca să ştiţi şi să descoperiţi în ce loc şi-a îndreptat paşii şi cine l-a văzut, căci mi s-a spus că este foarte deștept.
+> ...foarte *şiret*.
+
+AF | v.29 | A | 5
+De acolo, David s-a suit spre locurile întărite din En-Ghedi şi a locuit acolo.
+
+ABC | v.13,14,24,29 | c | 6
+De câte ori ș-ia schimbat David și oamenii lui locul unde se ascundeau de Saul?
+> 13 . ...au _ieşit din Cheila_ şi s-au dus unde au putut. Saul, aflând că David a scăpat din Cheila, s-a oprit din mers. 14. David a locuit în pustie, în locuri întărite, şi a rămas *pe muntele din pustia Zif*. Saul îl căuta mereu, dar Dumnezeu nu l-a dat în mâinile lui. 24. S-au sculat dar şi s-au dus la Zif înaintea lui Saul. David şi oamenii lui erau *în pustia Maon*, şi anume în câmpia dinspre miazăzi de pustie. 29. De acolo, David s-a suit spre locurile întărite din *En-Ghedi şi a locuit acolo*. 
+a) o dată.
+b) de două ori.
+c) de trei ori.
+
+ABC | v.9-13 | a | 7
+Ce a cerut David să aducă Abiatar, înainte de a cere descoperire de la Domnul, dacă îl vor da în mâinile lui Saul?
+> 9. David, luând cunoştinţă de acest plan rău pe care-l punea la cale Saul împotriva lui, a zis preotului Abiatar: „Adu *efodul!*” v.10-13 (Se va coborî Saul aici? Mă vor da locuitorii din Cheila pe mine și oamenii mei în mâinile lui Saul?)
+a) Efodul.
+b) chivotul Domnului.
+c) o carte.
+
+ABC | v.26-28 | b | 8
+Ce s-a întămplat când David și ai lui au fost înconjurați de Saul împreună cu oamenii lui?
+a) a început lupta.
+b) a venit un sol să îl cheme să se ducă la filistenii.
+c) David s-a predat lui Saul.
+
+ABC | v.2-4 | b | 9
+De câte ori a întrebat David pe Domnul ca să izbăvească Cheila de la filistenii?
+> _2._ *David a întrebat pe Domnul* şi a zis: „Să mă duc şi să bat pe filistenii aceştia?” Şi Domnul i-a răspuns: „Du-te, bate pe filisteni şi izbăveşte Cheila.” _3._ Dar oamenii lui David i-au zis: „Iată că noi ne temem chiar aici, în Iuda. Ce va fi când vom merge la Cheila, împotriva oştilor filistenilor?” _4._ *David a întrebat iarăşi pe Domnul*. Şi Domnul i-a răspuns: „Scoală-te şi coboară-te la Cheila, căci dau pe filisteni în mâinile tale.”
+a) o dată
+b) de două ori
+c) de trei ori
+
+ABC | v.19,20 | b | 10
+Cine a revelat lui Saul locul unde era David?
+> 19. *Zifiţii* s-au suit la Saul, la Ghibea, şi au zis: „Nu-i David ascuns între noi în locuri întărite, în pădure, pe dealul Hachila, care este la miazăzi de pustie? 20. Coboară-te dar, împărate, fiindcă aceasta este toată dorinţa sufletului tău; lasă pe noi dacă e vorba să-l dăm în mâinile împăratului.”
+a) Abiatar
+b) Zifiții
+c) locuitorii din Cheila
+
+# Capitolul 24
+
+AF | v.13 | F | 1
+‘Răul de la cel rău vine’, zice vechea zicală. 
+> ‘Răul de la *cei răi* vine’, zice vechea zicală. De aceea eu nu voi pune mâna pe tine.
+
+AF | v.12 | A | 2
+Judece Domnul între mine şi tine şi Domnul să mă răzbune pe tine, dar eu nu voi pune mâna pe tine.
+> Judece Domnul între mine şi tine şi Domnul să mă răzbune pe tine, dar eu nu voi pune mâna pe tine.
+
+AF | v.16 | F | 3
+Saul s-a bucurat că l-a întâlnit pe David.
+> Când a sfârşit David de spus aceste vorbe lui Saul, Saul a zis: „Glasul tău este, fiule David?” *Şi Saul a ridicat glasul şi a plâns*.
+
+AF | v.3 | F | 4
+Saul a ajuns la nişte stâne de oi erau lângă cetate; și acolo era o peșteră în care a intrat să doarmă.
+> A ajuns la nişte stâne de oi, care erau lângă *drum*, şi acolo era o peşteră în care a intrat să doarmă. David şi oamenii lui erau în fundul peşterii.
+
+AF | v.5 | F | 5
+David ara liniștit după ce tăiase colțul hainei lui Saul.
+> După aceea, *inima îi bătea*, pentru că tăiase colţul hainei lui Saul.
+
+ABC | v.2 | b | 6
+Câți oameni _aleși_ a trimis Saul ca să caute pe David și oamenii lui până pe stăncile țapilor sălbatici?
+> Saul a luat *trei mii de oameni aleşi* din tot Israelul şi s-a dus să caute pe David şi pe oamenii lui până pe stâncile ţapilor sălbatici.
+a) 2.000
+b) 3.000
+c) 4.000
+
+ABC | v.11 | a | 7
+Unde a cerut David lui Saul să se uite?
+> *Uite*, părintele meu, *uite colţul hainei tale în mâna mea*. Fiindcă ţi-am tăiat colţul hainei şi nu te-am ucis, să ştii şi să vezi că în purtarea mea nu este nici răutate, nici răzvrătire şi că n-am păcătuit împotriva ta. Totuşi tu îmi întinzi curse, ca să-mi iei viaţa.
+a) la mâna lui David.
+b) la haina pe care o purta Saul.
+c) la cursa pe care o întinde.
+
+ABC | v.1 | c | 8
+Unde se afla David când Saul s-a întors de la urmărirea filistenilor.
+> *Când s-a întors Saul* de la *urmărirea filistenilor*, au venit şi i-au spus: „*Iată că David este în pustia En-Ghedi.*” 
+a) în pustia Maon.
+b) la intrarea peșterii.
+c) la En-Ghedi.
+
+ABC | v.21-22 | b | 9
+Ce a jurământ a cerut Saul să-l facă cu David?
+> 21. *Jură-mi dar pe Domnul că nu-mi vei nimici sămânţa mea după mine* şi că nu-mi vei şterge numele din casa tatălui meu.” 22. David a jurat lui Saul. Apoi Saul a plecat acasă, iar David şi oamenii lui s-au suit în locul întărit.
+a) să nu domnească peste Israel.
+b) să nu nimicească sămânța lui.
+c) să nu mai caute să fugă.
+
+ABC | v.20 | b | 10
+Ce spunea David că-l îndemnau oamenii lui să facă în peșteră?
+> Vezi acum cu ochii tăi că Domnul te dăduse astăzi în mâinile mele în peşteră. Oamenii mei mă îndemnau să te omor, dar te-am cruţat şi am zis: ‘Nu voi pune mâna pe domnul meu, căci este unsul Domnului.’ 
+a) să îl omoare pe Doeg.
+b) să îl omoare pe Saul.
+c) să fugă de acolo.
+
+# Capitolul 19 (recapitulare)
+
+ABC | v.7-18 | c | 100
+Vrei să vezi un video despre cum a scăpat Mical pe David?
+> *1 Samuel 19:8-17*: David, scăpat de Mical [>Apasă aici să vezi un video!<](https://youtu.be/N0cGcOuFOUc)
+a) Da!
+b) De ce nu.
+c) Ambele răspunsuri
+
 `;
 
 // *bold* și _italic_ (nu afectează liniile de completat "_____")
@@ -129,11 +276,46 @@ function parse(text) {
   });
 }
 
-function render(chapters, root) {
+// ===== SCOR (doar în fila Test) =====
+// Scor = BASE + POINTS × răspunsuri corecte → cu 30 de întrebări: de la 10 la 100.
+// Capitolele cu "recapitulare" în titlu nu se punctează.
+const BASE = 10, POINTS = 3;
+const scored = ch => !/recapitulare/i.test(ch.title);
+const score = { correct: 0, answered: 0, total: 0 };
+let scoreBar = null, scoreTxt = null;
+
+function updateScore() {
+  if (!scoreBar) return;
+  const now = BASE + POINTS * score.correct;
+  const max = BASE + POINTS * score.total;
+  const finished = score.total > 0 && score.answered === score.total;
+  scoreBar.classList.toggle("final", finished);
+  scoreTxt.textContent = (finished ? "Scor final: " : "Scor curent: ") + now + " / " + max +
+    "  ·  Răspunsuri: " + score.answered + "/" + score.total +
+    "  ·  Corecte: " + score.correct;
+}
+
+function render(chapters, root, mode = "barem") {
   root.innerHTML = "";
+  if (mode === "test") {
+    score.correct = 0;
+    score.answered = 0;
+    score.total = chapters.reduce((t, ch) =>
+      t + (scored(ch) ? ch.questions.filter(q => q.type !== "NOTA").length : 0), 0);
+    scoreBar = document.createElement("div");
+    scoreBar.className = "scorebar";
+    scoreTxt = document.createElement("span");
+    const again = document.createElement("button");
+    again.textContent = "Reia testul";
+    again.style.marginLeft = "12px";
+    again.onclick = () => { render(chapters, root, "test"); window.scrollTo(0, 0); };
+    scoreBar.append(scoreTxt, again);
+    root.appendChild(scoreBar);
+    updateScore();
+  }
   chapters.forEach(ch => {
     const h = document.createElement("h2");
-    h.textContent = ch.title;
+    h.textContent = ch.title + (mode === "test" && !scored(ch) ? " — nepunctat" : "");
     root.appendChild(h);
     let n = 0;
     ch.questions.forEach(q => {
@@ -148,16 +330,40 @@ function render(chapters, root) {
       card.innerHTML = `<b>${q.order ?? n}.</b> ${fmt(q.text)}`;
       q.options.forEach(o => {
         const d = document.createElement("div");
-        d.className = "opt";
+        d.className = "opt" + (mode === "test" ? " pick" : "");
         d.dataset.k = o.k;
         d.innerHTML = (q.type === "ABC" ? o.k + ") " : "") + fmt(o.t);
         card.appendChild(d);
       });
-      const btn = document.createElement("button");
-      btn.textContent = "Arată răspunsul";
       const v = document.createElement("div");
       v.className = "verse";
       v.innerHTML = `<b>${q.verse}</b>` + (q.verseText ? ` — ${fmt(q.verseText)}` : "");
+
+      if (mode === "test") {
+        // TEST: apeși o variantă; corect = verde, greșit = roșu
+        const opts = [...card.querySelectorAll(".opt")];
+        const counts = scored(ch);
+        let done = false;
+        opts.forEach(d => d.onclick = () => {
+          if (done) return;          // un singur răspuns per întrebare
+          done = true;
+          const good = d.dataset.k === q.answer;
+          d.classList.add(good ? "correct" : "wrong");
+          if (!good) opts.find(x => x.dataset.k === q.answer).classList.add("correct");
+          v.style.display = "block";
+          if (counts) {
+            score.answered++;
+            if (good) score.correct++;
+            updateScore();
+          }
+        });
+        card.append(v);
+        root.appendChild(card);
+        return;
+      }
+
+      const btn = document.createElement("button");
+      btn.textContent = "Arată răspunsul";
       btn.onclick = () => {
         const show = !btn.dataset.on;
         btn.dataset.on = show ? "1" : "";
@@ -179,16 +385,12 @@ function render(chapters, root) {
 }
 
 const chapters = parse(text);
-render(chapters, document.getElementById("myText"));
+render(chapters, document.getElementById("myText"), "barem");
+render(chapters, document.getElementById("test"), "test");
 
 // ================= ADMIN =================
-// Hash-ul codului tău secret. Gol = prima configurare (vezi panoul Admin).
-const ADMIN_HASH = "260609";
-
-async function sha256(s) {
-  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
-}
+// Codul tău pentru fila Admin: schimbă-l aici.
+const ADMIN_CODE = "260609";
 
 // ex. "AFFAA bacac": A/F cu majuscule, apoi a/b/c cu litere mici, în ordinea afișată
 function keyOf(ch) {
@@ -230,6 +432,13 @@ function showKey() {
     b.textContent = "Copiază";
     b.onclick = () => copyText(lines[i], b);
     row.appendChild(b);
+    // lista detaliată: număr, răspuns, verset
+    const det = document.createElement("div");
+    det.style.marginTop = "8px";
+    det.innerHTML = ch.questions.filter(q => q.type !== "NOTA").map((q, k) =>
+      `${q.order ?? k + 1}. <b>${q.type === "AF" ? q.answer.toUpperCase() : q.answer}</b> <span style="color:#666">${q.verse}</span>`
+    ).join("<br>");
+    row.appendChild(det);
     adminBox.appendChild(row);
   });
 }
@@ -238,23 +447,14 @@ function buildAdmin() {
   adminBox.innerHTML = "";
   const inp = document.createElement("input");
   inp.type = "password";
-  inp.placeholder = ADMIN_HASH ? "Codul tău" : "Alege un cod nou";
+  inp.placeholder = "Codul tău";
   const go = document.createElement("button");
-  go.textContent = ADMIN_HASH ? "Deschide" : "Generează hash";
+  go.textContent = "Deschide";
   const msg = document.createElement("div");
   msg.style.marginTop = "10px";
-  go.onclick = async () => {
-    if (!inp.value) return;
-    let h;
-    try { h = await sha256(inp.value); }
-    catch { msg.textContent = "Browserul nu permite criptarea aici (folosește https sau localhost)."; return; }
-    if (!ADMIN_HASH) {
-      msg.innerHTML = `Pune în fișier, în loc de <code>const ADMIN_HASH = "";</code>:<br><code style="word-break:break-all">const ADMIN_HASH = "${h}";</code>`;
-    } else if (h === ADMIN_HASH) {
-      showKey();
-    } else {
-      msg.textContent = "Cod greșit.";
-    }
+  go.onclick = () => {
+    if (inp.value === ADMIN_CODE) showKey();
+    else msg.textContent = "Cod greșit.";
   };
   inp.onkeydown = e => { if (e.key === "Enter") go.click(); };
   adminBox.append(inp, go, msg);
@@ -263,12 +463,15 @@ function buildAdmin() {
 
 function openTab(which) {
   document.getElementById("myText").style.display = which === "barem" ? "" : "none";
+  document.getElementById("test").style.display = which === "test" ? "" : "none";
   adminBox.style.display = which === "admin" ? "" : "none";
   document.getElementById("tabBarem").classList.toggle("active", which === "barem");
+  document.getElementById("tabTest").classList.toggle("active", which === "test");
   document.getElementById("tabAdmin").classList.toggle("active", which === "admin");
   if (which === "admin") buildAdmin();
 }
 document.getElementById("tabBarem").onclick = () => openTab("barem");
+document.getElementById("tabTest").onclick = () => openTab("test");
 document.getElementById("tabAdmin").onclick = () => openTab("admin");
 </script>
 </body>
